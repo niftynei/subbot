@@ -19,6 +19,7 @@ const SCAN_MONTHS = 6;
 const MAX_MESSAGES = 1_000;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 const ADMIN_EMAIL = "niftynei@gmail.com";
+const GITHUB_REPO_URL = "https://github.com/niftynei/subbot";
 
 function App() {
   if (window.location.pathname === "/terms") {
@@ -224,6 +225,9 @@ function AuditPage() {
         <div className="topbar-actions">
           <a href="/terms">Terms</a>
           <a href="/policy">Privacy</a>
+          <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
           {isExportAdmin && (
             <button onClick={downloadCollectedEmails}>
               Download emails CSV
@@ -395,6 +399,9 @@ function TermsPage() {
         </div>
         <div className="topbar-actions">
           <a href="/policy">Privacy Policy</a>
+          <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
           <a href="/">Back to Subbot</a>
         </div>
       </header>
@@ -457,6 +464,9 @@ function PrivacyPolicyPage() {
         </div>
         <div className="topbar-actions">
           <a href="/terms">Terms</a>
+          <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
           <a href="/">Back to Subbot</a>
         </div>
       </header>
