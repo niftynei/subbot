@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	httpapi "github.com/niftynei/subbot/internal/http"
@@ -42,13 +43,14 @@ func openStore(databaseURL, dbPath string) (*store.Store, error) {
 }
 
 func serverAddr() string {
-	if addr := os.Getenv("ADDR"); addr != "" {
-		return addr
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
-	if port := os.Getenv("PORT"); port != "" {
-		return ":" + port
+	if strings.HasPrefix(port, ":") {
+		return port
 	}
-	return ":8080"
+	return ":" + port
 }
 
 func env(key, fallback string) string {

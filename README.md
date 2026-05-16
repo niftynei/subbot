@@ -88,10 +88,19 @@ npm run build
 Serve API and static assets from Go:
 
 ```sh
-DATABASE_PATH=data/subbot.sqlite STATIC_DIR=web/dist go run ./cmd/server
+DATABASE_PATH=data/subbot.sqlite STATIC_DIR=web/dist PORT=8080 go run ./cmd/server
 ```
 
-On DigitalOcean App Platform, attach a PostgreSQL database and expose its connection string as `DATABASE_URL`. The server also accepts DigitalOcean's `PORT` env var when `ADDR` is not set.
+On DigitalOcean App Platform, attach a PostgreSQL database and expose its connection string as `DATABASE_URL`.
+
+Recommended App Platform environment variables:
+
+- `VITE_GOOGLE_CLIENT_ID`: build-time. Public Google OAuth web client ID.
+- `DATABASE_URL`: run-time. Bind this to the attached Postgres database connection string.
+- `STATIC_DIR`: run-time, optional. Defaults to `web/dist`.
+- `PORT`: run-time, optional. Defaults to `8080`; App Platform may set this for the service.
+
+Do not set `DATABASE_PATH` in production unless you intentionally want ephemeral SQLite storage. Do not set or expose a Google OAuth client secret; this browser OAuth flow does not use one.
 
 ## API
 
