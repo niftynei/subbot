@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,14 +14,23 @@ import (
 
 	"github.com/niftynei/subbot/internal/app"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
 
-//go:embed migrations/*.sql
-var migrationFiles embed.FS
+//go:embed schema_*.sql
+var schemaFiles embed.FS
+
+type Dialect string
+
+const (
+	DialectSQLite   Dialect = "sqlite"
+	DialectPostgres Dialect = "postgres"
+)
 
 type Store struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect Dialect
 }
 
 func Open(path string) (*Store, error) {
@@ -41,11 +49,31 @@ func Open(path string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1)
 
-	s := &Store{db: db}
+	s := &Store{db: db, dialect: DialectSQLite}
 	if err := s.configure(); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
+	if err := s.Migrate(context.Background()); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return s, nil
+}
+
+func OpenPostgres(databaseURL string) (*Store, error) {
+	if strings.TrimSpace(databaseURL) == "" {
+		return nil, errors.New("database URL is required")
+	}
+	db, err := sql.Open("pgx", databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("open postgres: %w", err)
+	}
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(30 * time.Minute)
+
+	s := &Store{db: db, dialect: DialectPostgres}
 	if err := s.Migrate(context.Background()); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -62,6 +90,9 @@ func (s *Store) Ping(ctx context.Context) error {
 }
 
 func (s *Store) configure() error {
+	if s.dialect != DialectSQLite {
+		return nil
+	}
 	pragmas := []string{
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA journal_mode = WAL",
@@ -76,21 +107,16 @@ func (s *Store) configure() error {
 }
 
 func (s *Store) Migrate(ctx context.Context) error {
-	entries, err := fs.ReadDir(migrationFiles, "migrations")
-	if err != nil {
-		return fmt.Errorf("read migrations: %w", err)
+	schemaName := "schema_sqlite.sql"
+	if s.dialect == DialectPostgres {
+		schemaName = "schema_postgres.sql"
 	}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
-			continue
-		}
-		body, err := migrationFiles.ReadFile("migrations/" + entry.Name())
-		if err != nil {
-			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
-		}
-		if _, err := s.db.ExecContext(ctx, string(body)); err != nil {
-			return fmt.Errorf("apply migration %s: %w", entry.Name(), err)
-		}
+	body, err := schemaFiles.ReadFile(schemaName)
+	if err != nil {
+		return fmt.Errorf("read schema %s: %w", schemaName, err)
+	}
+	if _, err := s.db.ExecContext(ctx, string(body)); err != nil {
+		return fmt.Errorf("apply schema %s: %w", schemaName, err)
 	}
 	return nil
 }
@@ -115,25 +141,38 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 		}
 	}()
 
-	res, err := tx.ExecContext(ctx, `
-		INSERT INTO scans(account_hash, provider, window_days, message_count, scanned_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, req.AccountHash, provider, req.WindowDays, req.MessageCount, scannedAt)
-	if err != nil {
-		return app.ScanResult{}, fmt.Errorf("insert scan: %w", err)
-	}
-	scanID, err := res.LastInsertId()
-	if err != nil {
-		return app.ScanResult{}, fmt.Errorf("scan id: %w", err)
+	var scanID int64
+	if s.dialect == DialectPostgres {
+		err = tx.QueryRowContext(ctx, `
+			INSERT INTO scans(account_hash, provider, window_days, message_count, scanned_at)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id
+		`, req.AccountHash, provider, req.WindowDays, req.MessageCount, scannedAt).Scan(&scanID)
+		if err != nil {
+			return app.ScanResult{}, fmt.Errorf("insert scan: %w", err)
+		}
+	} else {
+		res, err := tx.ExecContext(ctx, `
+			INSERT INTO scans(account_hash, provider, window_days, message_count, scanned_at)
+			VALUES (?, ?, ?, ?, ?)
+		`, req.AccountHash, provider, req.WindowDays, req.MessageCount, scannedAt)
+		if err != nil {
+			return app.ScanResult{}, fmt.Errorf("insert scan: %w", err)
+		}
+		scanID, err = res.LastInsertId()
+		if err != nil {
+			return app.ScanResult{}, fmt.Errorf("scan id: %w", err)
+		}
 	}
 
-	stmt, err := tx.PrepareContext(ctx, `
+	insertSubscriptionSQL := s.rebind(`
 		INSERT INTO subscriptions(
 			scan_id, account_hash, subscription_key, display_name, sender_email, sender_domain, list_id,
 			message_count, first_received_at, last_received_at, frequency_label, frequency_per_week,
 			unsubscribe_methods_json
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
+	stmt, err := tx.PrepareContext(ctx, insertSubscriptionSQL)
 	if err != nil {
 		return app.ScanResult{}, fmt.Errorf("prepare insert subscriptions: %w", err)
 	}
@@ -180,13 +219,13 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 
 func (s *Store) LatestScan(ctx context.Context, accountHash string) (*app.ScanResult, error) {
 	var scan app.ScanResult
-	err := s.db.QueryRowContext(ctx, `
+	err := s.db.QueryRowContext(ctx, s.rebind(`
 		SELECT id, account_hash, provider, window_days, message_count, scanned_at
 		FROM scans
 		WHERE account_hash = ?
 		ORDER BY scanned_at DESC, id DESC
 		LIMIT 1
-	`, accountHash).Scan(
+	`), accountHash).Scan(
 		&scan.ID,
 		&scan.AccountHash,
 		&scan.Provider,
@@ -201,14 +240,14 @@ func (s *Store) LatestScan(ctx context.Context, accountHash string) (*app.ScanRe
 		return nil, fmt.Errorf("load latest scan: %w", err)
 	}
 
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
 		SELECT subscription_key, display_name, sender_email, sender_domain, list_id,
 			message_count, first_received_at, last_received_at, frequency_label,
 			frequency_per_week, unsubscribe_methods_json
 		FROM subscriptions
 		WHERE scan_id = ?
 		ORDER BY message_count DESC, last_received_at DESC
-	`, scan.ID)
+	`), scan.ID)
 	if err != nil {
 		return nil, fmt.Errorf("load subscriptions: %w", err)
 	}
@@ -248,13 +287,32 @@ func (s *Store) RecordUnsubscribeAttempt(ctx context.Context, in app.Unsubscribe
 	if in.AttemptedAt == "" {
 		in.AttemptedAt = time.Now().UTC().Format(time.RFC3339)
 	}
-	_, err := s.db.ExecContext(ctx, `
+	_, err := s.db.ExecContext(ctx, s.rebind(`
 		INSERT INTO unsubscribe_attempts(
 			account_hash, subscription_key, method_type, target, status, http_status, error_message, attempted_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, in.AccountHash, in.SubscriptionKey, in.MethodType, in.Target, in.Status, in.HTTPStatus, in.ErrorMessage, in.AttemptedAt)
+	`), in.AccountHash, in.SubscriptionKey, in.MethodType, in.Target, in.Status, in.HTTPStatus, in.ErrorMessage, in.AttemptedAt)
 	if err != nil {
 		return fmt.Errorf("record unsubscribe attempt: %w", err)
 	}
 	return nil
+}
+
+func (s *Store) rebind(query string) string {
+	if s.dialect != DialectPostgres {
+		return query
+	}
+
+	var out strings.Builder
+	arg := 1
+	for _, ch := range query {
+		if ch == '?' {
+			out.WriteByte('$')
+			out.WriteString(fmt.Sprint(arg))
+			arg++
+			continue
+		}
+		out.WriteRune(ch)
+	}
+	return out.String()
 }
