@@ -15,8 +15,8 @@ import type { BulkUnsubscribeResult, ScanResult, Subscription } from "./types";
 
 type ScanStatus = "idle" | "authorizing" | "scanning" | "saving" | "done" | "error";
 
-const SCAN_MONTHS = 12;
-const MAX_MESSAGES = 5_000;
+const SCAN_MONTHS = 6;
+const MAX_MESSAGES = 1_000;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 const ADMIN_EMAIL = "niftynei@gmail.com";
 
