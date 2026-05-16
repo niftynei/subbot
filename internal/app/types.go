@@ -43,6 +43,13 @@ type ScanResult struct {
 	Subscriptions []Subscription `json:"subscriptions,omitempty"`
 }
 
+type Account struct {
+	Email       string `json:"email"`
+	Provider    string `json:"provider"`
+	FirstSeenAt string `json:"first_seen_at"`
+	LastSeenAt  string `json:"last_seen_at"`
+}
+
 type BulkUnsubscribeRequest struct {
 	AccountHash string                `json:"account_hash"`
 	Items       []BulkUnsubscribeItem `json:"items"`

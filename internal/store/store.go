@@ -315,6 +315,36 @@ func (s *Store) RecordUnsubscribeAttempt(ctx context.Context, in app.Unsubscribe
 	return nil
 }
 
+func (s *Store) ListAccounts(ctx context.Context) ([]app.Account, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT email, provider, first_seen_at, last_seen_at
+		FROM accounts
+		ORDER BY last_seen_at DESC, email ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list accounts: %w", err)
+	}
+	defer rows.Close()
+
+	var accounts []app.Account
+	for rows.Next() {
+		var account app.Account
+		if err := rows.Scan(
+			&account.Email,
+			&account.Provider,
+			&account.FirstSeenAt,
+			&account.LastSeenAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan account: %w", err)
+		}
+		accounts = append(accounts, account)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate accounts: %w", err)
+	}
+	return accounts, nil
+}
+
 func (s *Store) rebind(query string) string {
 	if s.dialect != DialectPostgres {
 		return query

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,8 @@ import (
 )
 
 const maxJSONBody = 4 << 20
+const adminEmail = "niftynei@gmail.com"
+const gmailProfileURL = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
 
 var accountHashPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
@@ -30,11 +33,19 @@ type Server struct {
 }
 
 func New(st *store.Store, staticDir string) http.Handler {
-	s := &Server{
-		store: st,
-		client: &http.Client{
+	return NewWithHTTPClient(st, staticDir, nil)
+}
+
+func NewWithHTTPClient(st *store.Store, staticDir string, client *http.Client) http.Handler {
+	if client == nil {
+		client = &http.Client{
 			Timeout: 15 * time.Second,
-		},
+		}
+	}
+
+	s := &Server{
+		store:     st,
+		client:    client,
 		staticDir: staticDir,
 	}
 
@@ -42,6 +53,7 @@ func New(st *store.Store, staticDir string) http.Handler {
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("POST /api/scans", s.handleCreateScan)
 	mux.HandleFunc("GET /api/scans/latest", s.handleLatestScan)
+	mux.HandleFunc("GET /api/accounts/export.csv", s.handleExportAccountsCSV)
 	mux.HandleFunc("POST /api/unsubscribe/bulk", s.handleBulkUnsubscribe)
 	mux.HandleFunc("/", s.handleStatic)
 
@@ -92,6 +104,35 @@ func (s *Server) handleLatestScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleExportAccountsCSV(w http.ResponseWriter, r *http.Request) {
+	email, err := s.authenticatedGmailEmail(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	if !strings.EqualFold(email, adminEmail) {
+		writeError(w, http.StatusForbidden, "not allowed")
+		return
+	}
+
+	accounts, err := s.store.ListAccounts(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "load accounts failed")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="subbot-collected-emails.csv"`)
+	w.WriteHeader(http.StatusOK)
+
+	writer := csv.NewWriter(w)
+	_ = writer.Write([]string{"email", "provider", "first_seen_at", "last_seen_at"})
+	for _, account := range accounts {
+		_ = writer.Write([]string{account.Email, account.Provider, account.FirstSeenAt, account.LastSeenAt})
+	}
+	writer.Flush()
 }
 
 func (s *Server) handleBulkUnsubscribe(w http.ResponseWriter, r *http.Request) {
@@ -205,6 +246,54 @@ func (s *Server) postOneClick(r *http.Request, target string) (int, error) {
 		return resp.StatusCode, fmt.Errorf("unsubscribe endpoint returned HTTP %d", resp.StatusCode)
 	}
 	return resp.StatusCode, nil
+}
+
+func (s *Server) authenticatedGmailEmail(r *http.Request) (string, error) {
+	token, err := bearerToken(r.Header.Get("Authorization"))
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, gmailProfileURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("create Gmail profile request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("verify Gmail account failed")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("invalid Gmail authorization")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("Gmail profile lookup failed")
+	}
+
+	var profile struct {
+		EmailAddress string `json:"emailAddress"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&profile); err != nil {
+		return "", fmt.Errorf("invalid Gmail profile response")
+	}
+	if strings.TrimSpace(profile.EmailAddress) == "" {
+		return "", fmt.Errorf("Gmail profile response missing email")
+	}
+	return strings.TrimSpace(profile.EmailAddress), nil
+}
+
+func bearerToken(header string) (string, error) {
+	fields := strings.Fields(header)
+	if len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") || fields[1] == "" {
+		return "", errors.New("authorization bearer token is required")
+	}
+	return fields[1], nil
 }
 
 func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {

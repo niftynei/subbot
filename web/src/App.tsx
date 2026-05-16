@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { bulkUnsubscribe, saveScan } from "./api";
+import { bulkUnsubscribe, downloadCollectedEmailsCSV, saveScan } from "./api";
 import {
   hashEmail,
   isReadonlyScopeRequiredError,
@@ -18,6 +18,7 @@ type ScanStatus = "idle" | "authorizing" | "scanning" | "saving" | "done" | "err
 const SCAN_MONTHS = 12;
 const MAX_MESSAGES = 5_000;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
+const ADMIN_EMAIL = "niftynei@gmail.com";
 
 function App() {
   if (window.location.pathname === "/terms") {
@@ -185,8 +186,28 @@ function AuditPage() {
     }
   }
 
+  async function downloadCollectedEmails() {
+    setError("");
+
+    try {
+      const accessToken = await getAccessToken();
+      const blob = await downloadCollectedEmailsCSV(accessToken);
+      const objectURL = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectURL;
+      link.download = `subbot-collected-emails-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectURL);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Email CSV download failed");
+    }
+  }
+
   const busy = status === "authorizing" || status === "scanning" || status === "saving";
   const hasReusableToken = tokenIsUsable(gmailToken, GOOGLE_CLIENT_ID);
+  const isExportAdmin = accountEmail.toLowerCase() === ADMIN_EMAIL;
 
   return (
     <main className="app-shell">
@@ -197,6 +218,11 @@ function AuditPage() {
         </div>
         <div className="topbar-actions">
           <a href="/terms">Terms</a>
+          {isExportAdmin && (
+            <button disabled={busy} onClick={downloadCollectedEmails}>
+              Download emails CSV
+            </button>
+          )}
           {accountEmail && <div className="account-pill">{accountEmail}</div>}
         </div>
       </header>

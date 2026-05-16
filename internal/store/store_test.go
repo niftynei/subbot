@@ -65,4 +65,15 @@ func TestSaveAndLoadLatestScan(t *testing.T) {
 	if got := latest.Subscriptions[0].UnsubscribeMethods[0].Type; got != "https_one_click" {
 		t.Fatalf("unsubscribe method = %q, want https_one_click", got)
 	}
+
+	accounts, err := st.ListAccounts(context.Background())
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+	if len(accounts) != 1 {
+		t.Fatalf("accounts = %d, want 1", len(accounts))
+	}
+	if accounts[0].Email != "user@example.com" {
+		t.Fatalf("account export email = %q, want user@example.com", accounts[0].Email)
+	}
 }

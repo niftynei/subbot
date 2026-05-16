@@ -53,6 +53,20 @@ export async function bulkUnsubscribe(input: {
   return payload.results;
 }
 
+export async function downloadCollectedEmailsCSV(accessToken: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE}/api/accounts/export.csv`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const message = payload && typeof payload.error === "string" ? payload.error : response.statusText;
+    throw new Error(message);
+  }
+  return response.blob();
+}
+
 async function parseJSON<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null);
   if (!response.ok) {

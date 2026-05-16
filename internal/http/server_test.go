@@ -2,12 +2,16 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/niftynei/subbot/internal/app"
 	httpapi "github.com/niftynei/subbot/internal/http"
 	"github.com/niftynei/subbot/internal/store"
 )
@@ -59,4 +63,102 @@ func TestCreateAndLoadScan(t *testing.T) {
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`"display_name":"Example"`)) {
 		t.Fatalf("latest response missing subscription: %s", rec.Body.String())
 	}
+}
+
+func TestExportAccountsCSVAllowsAdminGmailProfile(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "subbot.sqlite"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+
+	_, err = st.SaveScan(context.Background(), app.ScanRequest{
+		AccountHash:  "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+		AccountEmail: "user@example.com",
+		Provider:     "gmail",
+		WindowDays:   30,
+		MessageCount: 0,
+	})
+	if err != nil {
+		t.Fatalf("save scan: %v", err)
+	}
+
+	handler := httpapi.NewWithHTTPClient(st, "", gmailProfileClient("niftynei@gmail.com", http.StatusOK))
+	req := httptest.NewRequest(http.MethodGet, "/api/accounts/export.csv", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET export status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/csv") {
+		t.Fatalf("content type = %q, want text/csv", got)
+	}
+	if !strings.Contains(rec.Body.String(), "email,provider,first_seen_at,last_seen_at") {
+		t.Fatalf("CSV missing header: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "user@example.com") {
+		t.Fatalf("CSV missing account email: %s", rec.Body.String())
+	}
+}
+
+func TestExportAccountsCSVRejectsNonAdminGmailProfile(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "subbot.sqlite"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+
+	handler := httpapi.NewWithHTTPClient(st, "", gmailProfileClient("other@example.com", http.StatusOK))
+	req := httptest.NewRequest(http.MethodGet, "/api/accounts/export.csv", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("GET export status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestExportAccountsCSVRequiresBearerToken(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "subbot.sqlite"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+
+	handler := httpapi.NewWithHTTPClient(st, "", gmailProfileClient("niftynei@gmail.com", http.StatusOK))
+	req := httptest.NewRequest(http.MethodGet, "/api/accounts/export.csv", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("GET export status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func gmailProfileClient(email string, status int) *http.Client {
+	return &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			body := `{"emailAddress":` + strconvQuote(email) + `}`
+			return &http.Response{
+				StatusCode: status,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    req,
+			}, nil
+		}),
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func strconvQuote(value string) string {
+	encoded, _ := json.Marshal(value)
+	return string(encoded)
 }
