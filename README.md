@@ -78,7 +78,7 @@ When `DATABASE_URL` is present, the Go server uses Postgres. Otherwise it falls 
 
 ## Production Build
 
-Build the frontend:
+Build the frontend locally:
 
 ```sh
 cd web
@@ -91,13 +91,33 @@ Serve API and static assets from Go:
 DATABASE_PATH=data/subbot.sqlite STATIC_DIR=web/dist PORT=8080 go run ./cmd/server
 ```
 
-On DigitalOcean App Platform, attach a PostgreSQL database and expose its connection string as `DATABASE_URL`.
+For container deploys, the root `Dockerfile` builds both the Vite frontend and Go backend. It copies `web/dist` into the runtime image at `/app/web/dist`, so the Go server can serve the frontend.
+
+Build locally with:
+
+```sh
+docker build \
+  --build-arg VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com \
+  -t subbot .
+```
+
+Run locally with SQLite:
+
+```sh
+docker run --rm -p 8080:8080 subbot
+```
+
+## DigitalOcean App Platform
+
+Use the repository root `Dockerfile` for the service. App Platform must receive `VITE_GOOGLE_CLIENT_ID` as a build-time argument or build-time environment variable so Vite can compile it into the frontend.
+
+Attach a PostgreSQL database and expose its connection string as `DATABASE_URL`.
 
 Recommended App Platform environment variables:
 
-- `VITE_GOOGLE_CLIENT_ID`: build-time. Public Google OAuth web client ID.
+- `VITE_GOOGLE_CLIENT_ID`: build-time. Public Google OAuth web client ID. Also pass this as a Docker build arg if App Platform separates build args from env vars.
 - `DATABASE_URL`: run-time. Bind this to the attached Postgres database connection string.
-- `STATIC_DIR`: run-time, optional. Defaults to `web/dist`.
+- `STATIC_DIR`: run-time, optional. Defaults to `/app/web/dist` in the Docker image.
 - `PORT`: run-time, optional. Defaults to `8080`; App Platform may set this for the service.
 
 Do not set `DATABASE_PATH` in production unless you intentionally want ephemeral SQLite storage. Do not set or expose a Google OAuth client secret; this browser OAuth flow does not use one.
