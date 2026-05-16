@@ -73,7 +73,8 @@ function AuditPage() {
           accessToken,
           maxMessages,
           months,
-          onProgress: setProgress
+          onProgress: setProgress,
+          onProfile: (profile) => setAccountEmail(profile.emailAddress)
         });
       } catch (err) {
         if (!isReadonlyScopeRequiredError(err)) {
@@ -88,7 +89,8 @@ function AuditPage() {
           accessToken,
           maxMessages,
           months,
-          onProgress: setProgress
+          onProgress: setProgress,
+          onProfile: (profile) => setAccountEmail(profile.emailAddress)
         });
       }
       const hash = await hashEmail(result.profile.emailAddress);
@@ -219,7 +221,7 @@ function AuditPage() {
         <div className="topbar-actions">
           <a href="/terms">Terms</a>
           {isExportAdmin && (
-            <button disabled={busy} onClick={downloadCollectedEmails}>
+            <button onClick={downloadCollectedEmails}>
               Download emails CSV
             </button>
           )}

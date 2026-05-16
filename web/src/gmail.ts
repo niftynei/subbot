@@ -18,7 +18,7 @@ type GoogleTokenClient = {
   requestAccessToken: (options?: { prompt?: string }) => void;
 };
 
-type GmailProfile = {
+export type GmailProfile = {
   emailAddress: string;
   messagesTotal: number;
   threadsTotal: number;
@@ -152,6 +152,7 @@ export async function scanGmailMetadata(input: {
   maxMessages: number;
   months: number;
   onProgress: (progress: GmailScanProgress) => void;
+  onProfile?: (profile: GmailProfile) => void;
 }): Promise<{ profile: GmailProfile; messages: GmailMessageMetadata[] }> {
   const messages: GmailMessageMetadata[] = [];
   const cutoff = Date.now() - input.months * 30.44 * 86_400_000;
@@ -176,6 +177,7 @@ export async function scanGmailMetadata(input: {
   const profile = await gmailFetch<GmailProfile>(input.accessToken, "/users/me/profile", {
     onRetry: (delayMs) => report(`Gmail is throttling profile access. Retrying in ${formatDelay(delayMs)}.`)
   });
+  input.onProfile?.(profile);
   const accountHash = await hashEmail(profile.emailAddress);
   report("Loading Gmail message list.");
 
