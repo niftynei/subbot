@@ -315,7 +315,7 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 
 	indexPath := filepath.Join(staticDir, "index.html")
 	if _, err := os.Stat(indexPath); err != nil {
-		writeError(w, http.StatusNotFound, "frontend is not built; run npm run build in web/")
+		writeError(w, http.StatusNotFound, "frontend is not built; deploy with the root Dockerfile or run npm run build in web/")
 		return
 	}
 	http.ServeFile(w, r, indexPath)

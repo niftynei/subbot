@@ -111,6 +111,17 @@ docker run --rm -p 8080:8080 subbot
 
 Use the repository root `Dockerfile` for the service. App Platform must receive `VITE_GOOGLE_CLIENT_ID` as a build-time argument or build-time environment variable so Vite can compile it into the frontend.
 
+In the App Platform app spec, the service must use the repository root as its source directory and set the Dockerfile path explicitly:
+
+```yaml
+services:
+  - name: subbot
+    source_dir: /
+    dockerfile_path: Dockerfile
+```
+
+If deploy logs mention framework detection, buildpacks, or parsing `go.mod`, the service is not using this Dockerfile. A buildpack deploy can compile the Go server without building `web/dist`, which causes the runtime error `frontend is not built`.
+
 Attach a PostgreSQL database and expose its connection string as `DATABASE_URL`.
 
 Recommended App Platform environment variables:
