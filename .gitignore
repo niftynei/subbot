@@ -1,0 +1,15 @@
+.DS_Store
+data/
+web/dist/
+web/node_modules/
+web/.vite/
+web/vite.config.js
+web/vite.config.d.ts
+*.tsbuildinfo
+*.log
+.env
+.env.local
+.env.*.local
+web/.env.local
+web/.env.*.local
+result
