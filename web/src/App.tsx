@@ -229,15 +229,6 @@ function AuditPage() {
         </div>
       </header>
 
-      <section className="notice-band">
-        <strong>Account email collection</strong>
-        <p>
-          When you connect Gmail and run a scan, Subbot stores your Gmail account email address with your scan
-          history. We use it to operate the service and may contact you with product updates or marketing.
-          By scanning, you agree to the <a href="/terms">terms of service</a>.
-        </p>
-      </section>
-
       <section className="controls">
         <label>
           Scan window

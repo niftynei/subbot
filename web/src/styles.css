@@ -71,7 +71,6 @@ button:disabled {
 }
 
 .topbar-actions a,
-.notice-band a,
 .terms-section a {
   color: #2057a7;
   font-weight: 700;
@@ -107,26 +106,10 @@ h2 {
 }
 
 .controls,
-.notice-band,
 .progress-band,
 .summary-grid,
 .results-section {
   margin-bottom: 18px;
-}
-
-.notice-band {
-  display: grid;
-  gap: 6px;
-  border: 1px solid #b8cbe4;
-  border-radius: 8px;
-  background: #eef5ff;
-  padding: 12px 14px;
-  color: #24364f;
-}
-
-.notice-band p {
-  color: #40516a;
-  line-height: 1.45;
 }
 
 .controls {
