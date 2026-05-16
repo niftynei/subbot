@@ -1,6 +1,6 @@
 import type { GmailMessageMetadata } from "./types";
 
-const DB_NAME = "subbot-gmail-cache";
+const DB_NAME = "sub-scription-bot-gmail-cache";
 const DB_VERSION = 1;
 const MESSAGE_STORE = "gmailMessages";
 
@@ -88,7 +88,7 @@ function openDB(): Promise<IDBDatabase> {
 
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("Failed to open IndexedDB"));
-    request.onblocked = () => reject(new Error("IndexedDB upgrade is blocked by another open Subbot tab"));
+    request.onblocked = () => reject(new Error("IndexedDB upgrade is blocked by another open sub-scription bot tab"));
   });
 }
 

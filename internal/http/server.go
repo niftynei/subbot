@@ -124,7 +124,7 @@ func (s *Server) handleExportAccountsCSV(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="subbot-collected-emails.csv"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="sub-scription-bot-collected-emails.csv"`)
 	w.WriteHeader(http.StatusOK)
 
 	writer := csv.NewWriter(w)
@@ -233,7 +233,7 @@ func (s *Server) postOneClick(r *http.Request, target string) (int, error) {
 		return 0, fmt.Errorf("create unsubscribe request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", "subbot/0.1")
+	req.Header.Set("User-Agent", "sub-scription-bot/0.1")
 
 	resp, err := s.client.Do(req)
 	if err != nil {

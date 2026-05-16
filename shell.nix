@@ -15,7 +15,7 @@ pkgs.mkShell {
     export DATABASE_PATH=''${DATABASE_PATH:-data/subbot.sqlite}
     export STATIC_DIR=''${STATIC_DIR:-web/dist}
 
-    echo "subbot dev shell"
+    echo "sub-scription bot dev shell"
     echo "  go run ./cmd/server"
     echo "  cd web && npm install && npm run dev"
   '';

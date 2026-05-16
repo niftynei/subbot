@@ -1,6 +1,6 @@
-# Subbot
+# sub-scription bot
 
-Subbot is a Gmail-first subscription auditor. The browser fetches up to 5,000 Gmail messages from the last 12 months, caches fetched messages locally in IndexedDB, finds unsubscribe headers and body links locally, groups recurring senders, and sends only aggregate subscription records to a Go API backed by SQLite locally or Postgres in production. Large scans are intentionally paced to stay under Gmail's per-user API limits.
+sub-scription bot is a Gmail-first subscription auditor. The browser fetches up to 5,000 Gmail messages from the last 12 months, caches fetched messages locally in IndexedDB, finds unsubscribe headers and body links locally, groups recurring senders, and sends only aggregate subscription records to a Go API backed by SQLite locally or Postgres in production. Large scans are intentionally paced to stay under Gmail's per-user API limits.
 
 ## Development
 
@@ -98,13 +98,13 @@ Build locally with:
 ```sh
 docker build \
   --build-arg VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com \
-  -t subbot .
+  -t sub-scription-bot .
 ```
 
 Run locally with SQLite:
 
 ```sh
-docker run --rm -p 8080:8080 subbot
+docker run --rm -p 8080:8080 sub-scription-bot
 ```
 
 ## DigitalOcean App Platform

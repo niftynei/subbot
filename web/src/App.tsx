@@ -20,6 +20,7 @@ const MAX_MESSAGES = 1_000;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 const ADMIN_EMAIL = "niftynei@gmail.com";
 const GITHUB_REPO_URL = "https://github.com/niftynei/subbot";
+const PRODUCT_NAME = "sub-scription bot";
 
 function App() {
   if (window.location.pathname === "/terms") {
@@ -201,7 +202,7 @@ function AuditPage() {
       const objectURL = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectURL;
-      link.download = `subbot-collected-emails-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.download = `sub-scription-bot-collected-emails-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.append(link);
       link.click();
       link.remove();
@@ -219,9 +220,9 @@ function AuditPage() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/subbot_logo.png" alt="" aria-hidden="true" />
+          <img className="brand-mark" src="/sub-scription-bot-logo.png" alt="" aria-hidden="true" />
           <div>
-            <h1>Subbot</h1>
+            <h1>{PRODUCT_NAME}</h1>
             <p>Email subscription audit for Gmail</p>
           </div>
         </div>
@@ -397,7 +398,7 @@ function TermsPage() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/subbot_logo.png" alt="" aria-hidden="true" />
+          <img className="brand-mark" src="/sub-scription-bot-logo.png" alt="" aria-hidden="true" />
           <div>
             <h1>Terms of Service</h1>
             <p>Last updated May 16, 2026</p>
@@ -408,52 +409,52 @@ function TermsPage() {
           <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
             GitHub
           </a>
-          <a href="/">Back to Subbot</a>
+          <a href="/">Back to {PRODUCT_NAME}</a>
         </div>
       </header>
 
       <section className="terms-section">
-        <h2>Use of Subbot</h2>
+        <h2>Use of {PRODUCT_NAME}</h2>
         <p>
-          Subbot helps you audit Gmail subscription messages and unsubscribe from mailing lists where
-          unsubscribe methods are available. You authorize Subbot to access Gmail through Google OAuth for
+          {PRODUCT_NAME} helps you audit Gmail subscription messages and unsubscribe from mailing lists where
+          unsubscribe methods are available. You authorize {PRODUCT_NAME} to access Gmail through Google OAuth for
           the purpose of scanning subscription mail and calculating subscription summaries.
         </p>
 
         <h2>Information Collected</h2>
         <p>
-          When you connect Gmail and run a scan, Subbot collects and stores your Gmail account email
+          When you connect Gmail and run a scan, {PRODUCT_NAME} collects and stores your Gmail account email
           address, a hashed account identifier, scan timing and message-count metadata, aggregate
           subscription records, unsubscribe methods found in messages, and unsubscribe attempt records.
-          Subbot does not store full email message bodies or attachments on the server.
+          {PRODUCT_NAME} does not store full email message bodies or attachments on the server.
         </p>
 
         <h2>Local Browser Data</h2>
         <p>
-          Subbot may store fetched Gmail message payloads in your browser's IndexedDB so repeated or
-          interrupted scans can avoid refetching the same messages. Clearing site data for Subbot removes
+          {PRODUCT_NAME} may store fetched Gmail message payloads in your browser's IndexedDB so repeated or
+          interrupted scans can avoid refetching the same messages. Clearing site data for {PRODUCT_NAME} removes
           that local browser cache.
         </p>
 
         <h2>Use of Your Email Address</h2>
         <p>
-          Subbot may use your Gmail account email address to operate the service, provide support, send
+          {PRODUCT_NAME} may use your Gmail account email address to operate the service, provide support, send
           product updates, and send marketing communications. Marketing emails should include a way to
           unsubscribe or opt out.
         </p>
 
         <h2>Unsubscribe Requests</h2>
         <p>
-          If you choose to unsubscribe through Subbot, the service may send one-click unsubscribe requests
-          to mailing-list endpoints discovered in your email. Subbot records the target, status, and time of
+          If you choose to unsubscribe through {PRODUCT_NAME}, the service may send one-click unsubscribe requests
+          to mailing-list endpoints discovered in your email. {PRODUCT_NAME} records the target, status, and time of
           those attempts.
         </p>
 
         <h2>Data Removal</h2>
         <p>
-          If you want your stored account email address or scan records removed, contact the Subbot
+          If you want your stored account email address or scan records removed, contact the {PRODUCT_NAME}
           operator. Removing Google OAuth access from your Google account stops future access but does not
-          automatically delete records already stored by Subbot.
+          automatically delete records already stored by {PRODUCT_NAME}.
         </p>
       </section>
     </main>
@@ -465,7 +466,7 @@ function PrivacyPolicyPage() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/subbot_logo.png" alt="" aria-hidden="true" />
+          <img className="brand-mark" src="/sub-scription-bot-logo.png" alt="" aria-hidden="true" />
           <div>
             <h1>Privacy Policy</h1>
             <p>Last updated May 16, 2026</p>
@@ -476,49 +477,49 @@ function PrivacyPolicyPage() {
           <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
             GitHub
           </a>
-          <a href="/">Back to Subbot</a>
+          <a href="/">Back to {PRODUCT_NAME}</a>
         </div>
       </header>
 
       <section className="terms-section">
         <h2>Overview</h2>
         <p>
-          Subbot helps you audit Gmail subscription messages and identify unsubscribe options. This policy
-          explains what Subbot collects, how that information is used, and what is stored locally in your
-          browser versus on the Subbot server.
+          {PRODUCT_NAME} helps you audit Gmail subscription messages and identify unsubscribe options. This policy
+          explains what {PRODUCT_NAME} collects, how that information is used, and what is stored locally in your
+          browser versus on the {PRODUCT_NAME} server.
         </p>
 
         <h2>Information You Authorize From Google</h2>
         <p>
-          When you connect Gmail, Subbot requests Gmail readonly access through Google OAuth. The browser
+          When you connect Gmail, {PRODUCT_NAME} requests Gmail readonly access through Google OAuth. The browser
           uses that access to read Gmail profile metadata, message metadata, message headers, and message
           bodies needed to find subscription senders and unsubscribe links.
         </p>
 
         <h2>Information Stored On The Server</h2>
         <p>
-          Subbot stores your Gmail account email address, a hashed account identifier, scan timing and
+          {PRODUCT_NAME} stores your Gmail account email address, a hashed account identifier, scan timing and
           message-count metadata, aggregate subscription records, unsubscribe methods discovered in
           messages, and unsubscribe attempt records.
         </p>
 
         <h2>Information Not Stored On The Server</h2>
         <p>
-          Subbot does not store full email message bodies, attachments, full raw Gmail payloads, or your
+          {PRODUCT_NAME} does not store full email message bodies, attachments, full raw Gmail payloads, or your
           Gmail OAuth access token on the server. Gmail message payloads may be cached locally in your
           browser's IndexedDB to avoid refetching the same messages during repeated or interrupted scans.
         </p>
 
         <h2>How Information Is Used</h2>
         <p>
-          Subbot uses collected information to operate the subscription audit, display subscription
+          {PRODUCT_NAME} uses collected information to operate the subscription audit, display subscription
           summaries, save scan history, process one-click unsubscribe attempts, provide support, and contact
           users with service notices, product updates, or marketing communications.
         </p>
 
         <h2>Google API Data Use</h2>
         <p>
-          Subbot's use and transfer of information received from Google APIs adheres to the{" "}
+          {PRODUCT_NAME}'s use and transfer of information received from Google APIs adheres to the{" "}
           <a
             href="https://developers.google.com/terms/api-services-user-data-policy"
             target="_blank"
@@ -531,34 +532,34 @@ function PrivacyPolicyPage() {
 
         <h2>Sharing</h2>
         <p>
-          Subbot does not sell stored account data or subscription audit data. Subbot may share information
+          {PRODUCT_NAME} does not sell stored account data or subscription audit data. {PRODUCT_NAME} may share information
           when required to operate hosting, database, security, or support services; to comply with law; to
           investigate abuse or security issues; or as part of a merger, acquisition, or sale of assets.
         </p>
 
         <h2>Security And Retention</h2>
         <p>
-          Subbot uses HTTPS in production and stores server-side records in its application database. Records
+          {PRODUCT_NAME} uses HTTPS in production and stores server-side records in its application database. Records
           are retained while needed to operate the service unless deletion is requested or retention is
           otherwise required for security, legal, or operational reasons.
         </p>
 
         <h2>Your Choices</h2>
         <p>
-          You can revoke Subbot's Google access from your Google Account permissions page. You can clear
-          Subbot site data in your browser to remove the local IndexedDB message cache. To request deletion
-          of stored account email or scan records, contact the Subbot operator.
+          You can revoke {PRODUCT_NAME}'s Google access from your Google Account permissions page. You can clear
+          {PRODUCT_NAME} site data in your browser to remove the local IndexedDB message cache. To request deletion
+          of stored account email or scan records, contact the {PRODUCT_NAME} operator.
         </p>
 
         <h2>Children</h2>
         <p>
-          Subbot is not intended for children under 13 and should not be used to connect a child's Gmail
+          {PRODUCT_NAME} is not intended for children under 13 and should not be used to connect a child's Gmail
           account.
         </p>
 
         <h2>Changes</h2>
         <p>
-          Subbot may update this policy as the service changes. Material changes should be reflected by an
+          {PRODUCT_NAME} may update this policy as the service changes. Material changes should be reflected by an
           updated date on this page.
         </p>
       </section>

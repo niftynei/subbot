@@ -1,5 +1,5 @@
 {
-  description = "Subbot development shell";
+  description = "sub-scription bot development shell";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
