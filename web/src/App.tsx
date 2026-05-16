@@ -24,6 +24,9 @@ function App() {
   if (window.location.pathname === "/terms") {
     return <TermsPage />;
   }
+  if (window.location.pathname === "/policy") {
+    return <PrivacyPolicyPage />;
+  }
   return <AuditPage />;
 }
 
@@ -220,6 +223,7 @@ function AuditPage() {
         </div>
         <div className="topbar-actions">
           <a href="/terms">Terms</a>
+          <a href="/policy">Privacy</a>
           {isExportAdmin && (
             <button onClick={downloadCollectedEmails}>
               Download emails CSV
@@ -390,6 +394,7 @@ function TermsPage() {
           <p>Last updated May 16, 2026</p>
         </div>
         <div className="topbar-actions">
+          <a href="/policy">Privacy Policy</a>
           <a href="/">Back to Subbot</a>
         </div>
       </header>
@@ -436,6 +441,106 @@ function TermsPage() {
           If you want your stored account email address or scan records removed, contact the Subbot
           operator. Removing Google OAuth access from your Google account stops future access but does not
           automatically delete records already stored by Subbot.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function PrivacyPolicyPage() {
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div>
+          <h1>Privacy Policy</h1>
+          <p>Last updated May 16, 2026</p>
+        </div>
+        <div className="topbar-actions">
+          <a href="/terms">Terms</a>
+          <a href="/">Back to Subbot</a>
+        </div>
+      </header>
+
+      <section className="terms-section">
+        <h2>Overview</h2>
+        <p>
+          Subbot helps you audit Gmail subscription messages and identify unsubscribe options. This policy
+          explains what Subbot collects, how that information is used, and what is stored locally in your
+          browser versus on the Subbot server.
+        </p>
+
+        <h2>Information You Authorize From Google</h2>
+        <p>
+          When you connect Gmail, Subbot requests Gmail readonly access through Google OAuth. The browser
+          uses that access to read Gmail profile metadata, message metadata, message headers, and message
+          bodies needed to find subscription senders and unsubscribe links.
+        </p>
+
+        <h2>Information Stored On The Server</h2>
+        <p>
+          Subbot stores your Gmail account email address, a hashed account identifier, scan timing and
+          message-count metadata, aggregate subscription records, unsubscribe methods discovered in
+          messages, and unsubscribe attempt records.
+        </p>
+
+        <h2>Information Not Stored On The Server</h2>
+        <p>
+          Subbot does not store full email message bodies, attachments, full raw Gmail payloads, or your
+          Gmail OAuth access token on the server. Gmail message payloads may be cached locally in your
+          browser's IndexedDB to avoid refetching the same messages during repeated or interrupted scans.
+        </p>
+
+        <h2>How Information Is Used</h2>
+        <p>
+          Subbot uses collected information to operate the subscription audit, display subscription
+          summaries, save scan history, process one-click unsubscribe attempts, provide support, and contact
+          users with service notices, product updates, or marketing communications.
+        </p>
+
+        <h2>Google API Data Use</h2>
+        <p>
+          Subbot's use and transfer of information received from Google APIs adheres to the{" "}
+          <a
+            href="https://developers.google.com/terms/api-services-user-data-policy"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Google API Services User Data Policy
+          </a>
+          , including the Limited Use requirements.
+        </p>
+
+        <h2>Sharing</h2>
+        <p>
+          Subbot does not sell stored account data or subscription audit data. Subbot may share information
+          when required to operate hosting, database, security, or support services; to comply with law; to
+          investigate abuse or security issues; or as part of a merger, acquisition, or sale of assets.
+        </p>
+
+        <h2>Security And Retention</h2>
+        <p>
+          Subbot uses HTTPS in production and stores server-side records in its application database. Records
+          are retained while needed to operate the service unless deletion is requested or retention is
+          otherwise required for security, legal, or operational reasons.
+        </p>
+
+        <h2>Your Choices</h2>
+        <p>
+          You can revoke Subbot's Google access from your Google Account permissions page. You can clear
+          Subbot site data in your browser to remove the local IndexedDB message cache. To request deletion
+          of stored account email or scan records, contact the Subbot operator.
+        </p>
+
+        <h2>Children</h2>
+        <p>
+          Subbot is not intended for children under 13 and should not be used to connect a child's Gmail
+          account.
+        </p>
+
+        <h2>Changes</h2>
+        <p>
+          Subbot may update this policy as the service changes. Material changes should be reflected by an
+          updated date on this page.
         </p>
       </section>
     </main>
