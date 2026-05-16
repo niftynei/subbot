@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"os"
 	"path"
@@ -234,6 +235,11 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 func validateScan(req app.ScanRequest) error {
 	if !accountHashPattern.MatchString(strings.TrimSpace(req.AccountHash)) {
 		return errors.New("account_hash must be a SHA-256 hex string")
+	}
+	accountEmail := strings.TrimSpace(req.AccountEmail)
+	parsedAccountEmail, err := mail.ParseAddress(accountEmail)
+	if err != nil || parsedAccountEmail.Address != accountEmail {
+		return errors.New("account_email must be a valid email address")
 	}
 	if req.Provider != "" && req.Provider != "gmail" {
 		return errors.New("provider must be gmail")

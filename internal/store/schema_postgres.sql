@@ -1,3 +1,11 @@
+CREATE TABLE IF NOT EXISTS accounts (
+  account_hash TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  first_seen_at TIMESTAMPTZ NOT NULL,
+  last_seen_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS scans (
   id BIGSERIAL PRIMARY KEY,
   account_hash TEXT NOT NULL,

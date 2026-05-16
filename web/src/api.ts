@@ -4,6 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 export async function saveScan(input: {
   accountHash: string;
+  accountEmail: string;
   windowDays: number;
   messageCount: number;
   subscriptions: Subscription[];
@@ -13,6 +14,7 @@ export async function saveScan(input: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       account_hash: input.accountHash,
+      account_email: input.accountEmail,
       provider: "gmail",
       window_days: input.windowDays,
       message_count: input.messageCount,

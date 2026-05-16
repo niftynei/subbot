@@ -19,6 +19,7 @@ func TestSaveAndLoadLatestScan(t *testing.T) {
 	accountHash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	_, err = st.SaveScan(context.Background(), app.ScanRequest{
 		AccountHash:  accountHash,
+		AccountEmail: "user@example.com",
 		Provider:     "gmail",
 		WindowDays:   180,
 		MessageCount: 42,
@@ -54,6 +55,9 @@ func TestSaveAndLoadLatestScan(t *testing.T) {
 	}
 	if latest.MessageCount != 42 {
 		t.Fatalf("message count = %d, want 42", latest.MessageCount)
+	}
+	if latest.AccountEmail != "user@example.com" {
+		t.Fatalf("account email = %q, want user@example.com", latest.AccountEmail)
 	}
 	if len(latest.Subscriptions) != 1 {
 		t.Fatalf("subscriptions = %d, want 1", len(latest.Subscriptions))

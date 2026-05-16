@@ -20,6 +20,13 @@ const MAX_MESSAGES = 5_000;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 
 function App() {
+  if (window.location.pathname === "/terms") {
+    return <TermsPage />;
+  }
+  return <AuditPage />;
+}
+
+function AuditPage() {
   const [months, setMonths] = useState(SCAN_MONTHS);
   const [maxMessages, setMaxMessages] = useState(MAX_MESSAGES);
   const [status, setStatus] = useState<ScanStatus>("idle");
@@ -93,6 +100,7 @@ function App() {
       setStatus("saving");
       const saved = await saveScan({
         accountHash: hash,
+        accountEmail: result.profile.emailAddress,
         windowDays: Math.round(months * 30.4),
         messageCount: result.messages.length,
         subscriptions: builtSubscriptions
@@ -187,8 +195,20 @@ function App() {
           <h1>Subbot</h1>
           <p>Email subscription audit for Gmail</p>
         </div>
-        {accountEmail && <div className="account-pill">{accountEmail}</div>}
+        <div className="topbar-actions">
+          <a href="/terms">Terms</a>
+          {accountEmail && <div className="account-pill">{accountEmail}</div>}
+        </div>
       </header>
+
+      <section className="notice-band">
+        <strong>Account email collection</strong>
+        <p>
+          When you connect Gmail and run a scan, Subbot stores your Gmail account email address with your scan
+          history. We use it to operate the service and may contact you with product updates or marketing.
+          By scanning, you agree to the <a href="/terms">terms of service</a>.
+        </p>
+      </section>
 
       <section className="controls">
         <label>
@@ -338,6 +358,67 @@ function App() {
           </div>
         </div>
       )}
+    </main>
+  );
+}
+
+function TermsPage() {
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div>
+          <h1>Terms of Service</h1>
+          <p>Last updated May 16, 2026</p>
+        </div>
+        <div className="topbar-actions">
+          <a href="/">Back to Subbot</a>
+        </div>
+      </header>
+
+      <section className="terms-section">
+        <h2>Use of Subbot</h2>
+        <p>
+          Subbot helps you audit Gmail subscription messages and unsubscribe from mailing lists where
+          unsubscribe methods are available. You authorize Subbot to access Gmail through Google OAuth for
+          the purpose of scanning subscription mail and calculating subscription summaries.
+        </p>
+
+        <h2>Information Collected</h2>
+        <p>
+          When you connect Gmail and run a scan, Subbot collects and stores your Gmail account email
+          address, a hashed account identifier, scan timing and message-count metadata, aggregate
+          subscription records, unsubscribe methods found in messages, and unsubscribe attempt records.
+          Subbot does not store full email message bodies or attachments on the server.
+        </p>
+
+        <h2>Local Browser Data</h2>
+        <p>
+          Subbot may store fetched Gmail message payloads in your browser's IndexedDB so repeated or
+          interrupted scans can avoid refetching the same messages. Clearing site data for Subbot removes
+          that local browser cache.
+        </p>
+
+        <h2>Use of Your Email Address</h2>
+        <p>
+          Subbot may use your Gmail account email address to operate the service, provide support, send
+          product updates, and send marketing communications. Marketing emails should include a way to
+          unsubscribe or opt out.
+        </p>
+
+        <h2>Unsubscribe Requests</h2>
+        <p>
+          If you choose to unsubscribe through Subbot, the service may send one-click unsubscribe requests
+          to mailing-list endpoints discovered in your email. Subbot records the target, status, and time of
+          those attempts.
+        </p>
+
+        <h2>Data Removal</h2>
+        <p>
+          If you want your stored account email address or scan records removed, contact the Subbot
+          operator. Removing Google OAuth access from your Google account stops future access but does not
+          automatically delete records already stored by Subbot.
+        </p>
+      </section>
     </main>
   );
 }

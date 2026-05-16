@@ -24,6 +24,7 @@ type Subscription struct {
 
 type ScanRequest struct {
 	AccountHash   string         `json:"account_hash"`
+	AccountEmail  string         `json:"account_email"`
 	Provider      string         `json:"provider"`
 	WindowDays    int            `json:"window_days"`
 	MessageCount  int            `json:"message_count"`
@@ -34,6 +35,7 @@ type ScanRequest struct {
 type ScanResult struct {
 	ID            int64          `json:"id"`
 	AccountHash   string         `json:"account_hash"`
+	AccountEmail  string         `json:"account_email,omitempty"`
 	Provider      string         `json:"provider"`
 	WindowDays    int            `json:"window_days"`
 	MessageCount  int            `json:"message_count"`

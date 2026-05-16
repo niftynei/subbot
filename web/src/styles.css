@@ -63,6 +63,20 @@ button:disabled {
   margin-bottom: 24px;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.topbar-actions a,
+.notice-band a,
+.terms-section a {
+  color: #2057a7;
+  font-weight: 700;
+}
+
 h1,
 h2,
 p {
@@ -93,10 +107,26 @@ h2 {
 }
 
 .controls,
+.notice-band,
 .progress-band,
 .summary-grid,
 .results-section {
   margin-bottom: 18px;
+}
+
+.notice-band {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #b8cbe4;
+  border-radius: 8px;
+  background: #eef5ff;
+  padding: 12px 14px;
+  color: #24364f;
+}
+
+.notice-band p {
+  color: #40516a;
+  line-height: 1.45;
 }
 
 .controls {
@@ -297,6 +327,27 @@ th {
   margin-top: 18px;
 }
 
+.terms-section {
+  border: 1px solid #d6dde6;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.terms-section h2 {
+  margin-top: 22px;
+}
+
+.terms-section h2:first-child {
+  margin-top: 0;
+}
+
+.terms-section p {
+  margin-top: 8px;
+  color: #4d5a6d;
+  line-height: 1.6;
+}
+
 @media (max-width: 820px) {
   .app-shell {
     width: min(100vw - 20px, 1180px);
@@ -306,6 +357,11 @@ th {
   .topbar,
   .results-header {
     display: grid;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .controls,

@@ -130,6 +130,7 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 	if provider == "" {
 		provider = "gmail"
 	}
+	accountEmail := strings.TrimSpace(req.AccountEmail)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -140,6 +141,18 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 			_ = tx.Rollback()
 		}
 	}()
+
+	_, err = tx.ExecContext(ctx, s.rebind(`
+		INSERT INTO accounts(account_hash, email, provider, first_seen_at, last_seen_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(account_hash) DO UPDATE SET
+			email = excluded.email,
+			provider = excluded.provider,
+			last_seen_at = excluded.last_seen_at
+	`), req.AccountHash, accountEmail, provider, scannedAt, scannedAt)
+	if err != nil {
+		return app.ScanResult{}, fmt.Errorf("upsert account: %w", err)
+	}
 
 	var scanID int64
 	if s.dialect == DialectPostgres {
@@ -209,6 +222,7 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 	return app.ScanResult{
 		ID:            scanID,
 		AccountHash:   req.AccountHash,
+		AccountEmail:  accountEmail,
 		Provider:      provider,
 		WindowDays:    req.WindowDays,
 		MessageCount:  req.MessageCount,
@@ -220,14 +234,17 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 func (s *Store) LatestScan(ctx context.Context, accountHash string) (*app.ScanResult, error) {
 	var scan app.ScanResult
 	err := s.db.QueryRowContext(ctx, s.rebind(`
-		SELECT id, account_hash, provider, window_days, message_count, scanned_at
+		SELECT scans.id, scans.account_hash, COALESCE(accounts.email, ''), scans.provider,
+			scans.window_days, scans.message_count, scans.scanned_at
 		FROM scans
-		WHERE account_hash = ?
-		ORDER BY scanned_at DESC, id DESC
+		LEFT JOIN accounts ON accounts.account_hash = scans.account_hash
+		WHERE scans.account_hash = ?
+		ORDER BY scans.scanned_at DESC, scans.id DESC
 		LIMIT 1
 	`), accountHash).Scan(
 		&scan.ID,
 		&scan.AccountHash,
+		&scan.AccountEmail,
 		&scan.Provider,
 		&scan.WindowDays,
 		&scan.MessageCount,

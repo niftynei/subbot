@@ -23,6 +23,7 @@ func TestCreateAndLoadScan(t *testing.T) {
 	accountHash := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	body := map[string]any{
 		"account_hash":  accountHash,
+		"account_email": "user@example.com",
 		"provider":      "gmail",
 		"window_days":   30,
 		"message_count": 3,

@@ -23,6 +23,7 @@ export type Subscription = {
 export type ScanResult = {
   id: number;
   account_hash: string;
+  account_email?: string;
   provider: "gmail";
   window_days: number;
   message_count: number;
