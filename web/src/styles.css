@@ -1,9 +1,9 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #f6f7f9;
-  color: #18202b;
+  background: #03070d;
+  color: #f7fbff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -14,6 +14,8 @@
 
 body {
   margin: 0;
+  background: linear-gradient(180deg, #050b14 0%, #07090d 44%, #030507 100%);
+  min-height: 100vh;
 }
 
 button,
@@ -24,12 +26,16 @@ select {
 
 button {
   min-height: 40px;
-  border: 1px solid #c8d0d9;
+  border: 1px solid #2b3544;
   border-radius: 6px;
-  background: #ffffff;
-  color: #18202b;
+  background: #111821;
+  color: #f7fbff;
   padding: 0 14px;
   cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: #138cff;
 }
 
 button:disabled {
@@ -38,14 +44,15 @@ button:disabled {
 }
 
 .primary {
-  border-color: #2057a7;
-  background: #2057a7;
+  border-color: #0f8cff;
+  background: #0a7dff;
   color: #ffffff;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 8%) inset;
 }
 
 .danger {
-  border-color: #a5252f;
-  background: #a5252f;
+  border-color: #d84c5b;
+  background: #b92434;
   color: #ffffff;
 }
 
@@ -63,6 +70,22 @@ button:disabled {
   margin-bottom: 24px;
 }
 
+.brand-lockup {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.brand-mark {
+  width: 68px;
+  height: 68px;
+  border: 1px solid #1b2633;
+  border-radius: 8px;
+  background: #000000;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgb(21 148 255 / 20%) inset;
+}
+
 .topbar-actions {
   display: flex;
   gap: 12px;
@@ -72,7 +95,7 @@ button:disabled {
 
 .topbar-actions a,
 .terms-section a {
-  color: #2057a7;
+  color: #3aa7ff;
   font-weight: 700;
 }
 
@@ -83,26 +106,28 @@ p {
 }
 
 h1 {
-  font-size: 32px;
+  font-size: 34px;
   line-height: 1.1;
+  color: #ffffff;
 }
 
 h2 {
   font-size: 20px;
+  color: #f7fbff;
 }
 
 .topbar p,
 .results-header p,
 .muted {
-  color: #647184;
+  color: #8f9dad;
 }
 
 .account-pill {
-  border: 1px solid #c8d0d9;
+  border: 1px solid #263444;
   border-radius: 999px;
-  background: #ffffff;
+  background: #0b1119;
   padding: 8px 12px;
-  color: #39465a;
+  color: #d9e8f8;
 }
 
 .controls,
@@ -122,7 +147,7 @@ h2 {
 label {
   display: grid;
   gap: 6px;
-  color: #3c4758;
+  color: #aebdca;
   font-size: 13px;
   font-weight: 600;
 }
@@ -131,11 +156,16 @@ input,
 select {
   min-height: 40px;
   width: 100%;
-  border: 1px solid #c8d0d9;
+  border: 1px solid #263444;
   border-radius: 6px;
-  background: #ffffff;
-  color: #18202b;
+  background: #0b1119;
+  color: #f7fbff;
   padding: 0 10px;
+}
+
+select option {
+  background: #0b1119;
+  color: #f7fbff;
 }
 
 .progress-band {
@@ -143,21 +173,21 @@ select {
   grid-template-columns: auto minmax(180px, 1fr) auto;
   gap: 12px;
   align-items: center;
-  border: 1px solid #c8d0d9;
+  border: 1px solid #263444;
   border-radius: 8px;
-  background: #ffffff;
+  background: #0b1119;
   padding: 12px;
 }
 
 .progress-note {
   grid-column: 1 / -1;
-  color: #647184;
+  color: #8f9dad;
   font-size: 13px;
 }
 
 progress {
   width: 100%;
-  accent-color: #2057a7;
+  accent-color: #0a91ff;
 }
 
 .error-banner {
@@ -178,14 +208,14 @@ progress {
 .metric {
   display: grid;
   gap: 8px;
-  border: 1px solid #d6dde6;
+  border: 1px solid #263444;
   border-radius: 8px;
-  background: #ffffff;
+  background: #0b1119;
   padding: 14px;
 }
 
 .metric span {
-  color: #647184;
+  color: #8f9dad;
   font-size: 13px;
 }
 
@@ -194,9 +224,9 @@ progress {
 }
 
 .results-section {
-  border: 1px solid #d6dde6;
+  border: 1px solid #263444;
   border-radius: 8px;
-  background: #ffffff;
+  background: #0b1119;
 }
 
 .results-header {
@@ -205,7 +235,7 @@ progress {
   gap: 16px;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #e4e9ef;
+  border-bottom: 1px solid #1c2734;
 }
 
 .table-actions {
@@ -228,13 +258,13 @@ table {
 th,
 td {
   padding: 12px 14px;
-  border-bottom: 1px solid #edf1f5;
+  border-bottom: 1px solid #141e2a;
   text-align: left;
   vertical-align: middle;
 }
 
 th {
-  color: #4d5a6d;
+  color: #9eabba;
   font-size: 12px;
   text-transform: uppercase;
 }
@@ -247,38 +277,38 @@ th {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  border: 1px solid #c8d0d9;
+  border: 1px solid #334253;
   border-radius: 999px;
   padding: 0 10px;
-  color: #39465a;
+  color: #d9e8f8;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .action-link {
-  border-color: #2057a7;
-  background: #edf4ff;
-  color: #1d4d93;
+  border-color: #168fff;
+  background: #061b31;
+  color: #70c0ff;
 }
 
 .good,
 .status-success {
-  border-color: #7ab98f;
-  background: #edf8f0;
-  color: #27643d;
+  border-color: #30a66a;
+  background: #092418;
+  color: #87e8b2;
 }
 
 .status-failed {
-  border-color: #df9aa1;
-  background: #fff1f2;
-  color: #81212a;
+  border-color: #d84c5b;
+  background: #2b0b12;
+  color: #ff99a3;
 }
 
 .status-manual_required,
 .muted-badge {
-  border-color: #d6dde6;
-  background: #f6f7f9;
-  color: #647184;
+  border-color: #263444;
+  background: #080d13;
+  color: #8f9dad;
 }
 
 .modal-backdrop {
@@ -293,14 +323,14 @@ th {
 .modal {
   width: min(440px, 100%);
   border-radius: 8px;
-  background: #ffffff;
+  background: #0b1119;
   padding: 20px;
   box-shadow: 0 24px 80px rgb(24 32 43 / 28%);
 }
 
 .modal p {
   margin-top: 8px;
-  color: #4d5a6d;
+  color: #b8c5d3;
 }
 
 .modal-actions {
@@ -311,9 +341,9 @@ th {
 }
 
 .terms-section {
-  border: 1px solid #d6dde6;
+  border: 1px solid #263444;
   border-radius: 8px;
-  background: #ffffff;
+  background: #0b1119;
   padding: 18px;
 }
 
@@ -327,7 +357,7 @@ th {
 
 .terms-section p {
   margin-top: 8px;
-  color: #4d5a6d;
+  color: #b8c5d3;
   line-height: 1.6;
 }
 

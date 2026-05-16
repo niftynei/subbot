@@ -218,9 +218,12 @@ function AuditPage() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div>
-          <h1>Subbot</h1>
-          <p>Email subscription audit for Gmail</p>
+        <div className="brand-lockup">
+          <img className="brand-mark" src="/subbot_logo.png" alt="" aria-hidden="true" />
+          <div>
+            <h1>Subbot</h1>
+            <p>Email subscription audit for Gmail</p>
+          </div>
         </div>
         <div className="topbar-actions">
           <a href="/terms">Terms</a>
@@ -393,9 +396,12 @@ function TermsPage() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div>
-          <h1>Terms of Service</h1>
-          <p>Last updated May 16, 2026</p>
+        <div className="brand-lockup">
+          <img className="brand-mark" src="/subbot_logo.png" alt="" aria-hidden="true" />
+          <div>
+            <h1>Terms of Service</h1>
+            <p>Last updated May 16, 2026</p>
+          </div>
         </div>
         <div className="topbar-actions">
           <a href="/policy">Privacy Policy</a>
@@ -458,9 +464,12 @@ function PrivacyPolicyPage() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div>
-          <h1>Privacy Policy</h1>
-          <p>Last updated May 16, 2026</p>
+        <div className="brand-lockup">
+          <img className="brand-mark" src="/subbot_logo.png" alt="" aria-hidden="true" />
+          <div>
+            <h1>Privacy Policy</h1>
+            <p>Last updated May 16, 2026</p>
+          </div>
         </div>
         <div className="topbar-actions">
           <a href="/terms">Terms</a>
