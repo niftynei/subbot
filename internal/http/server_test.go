@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -135,6 +136,84 @@ func TestExportAccountsCSVRequiresBearerToken(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("GET export status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestStaticRoutesServeSEOAndReal404(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "subbot.sqlite"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+
+	staticDir := t.TempDir()
+	index := `<!doctype html><html><head><!-- SEO_META_START --><title>fallback</title><!-- SEO_META_END --></head><body><div id="root"></div></body></html>`
+	if err := os.WriteFile(filepath.Join(staticDir, "index.html"), []byte(index), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(staticDir, "robots.txt"), []byte("User-agent: *\n"), 0644); err != nil {
+		t.Fatalf("write robots.txt: %v", err)
+	}
+
+	handler := httpapi.New(st, staticDir)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET / status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "<title>sub-scription bot | Gmail subscription audit tool</title>") {
+		t.Fatalf("home HTML missing SEO title: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"@type": "SoftwareApplication"`) {
+		t.Fatalf("home HTML missing software JSON-LD: %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/policy", nil)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /policy status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "<title>Privacy Policy | sub-scription bot</title>") {
+		t.Fatalf("policy HTML missing route title: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `href="https://subbot.me/policy"`) {
+		t.Fatalf("policy HTML missing canonical URL: %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/terms", nil)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /terms status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "<title>Terms of Service | sub-scription bot</title>") {
+		t.Fatalf("terms HTML missing route title: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `href="https://subbot.me/terms"`) {
+		t.Fatalf("terms HTML missing canonical URL: %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/robots.txt", nil)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /robots.txt status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "User-agent: *") {
+		t.Fatalf("robots.txt not served: %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/missing", nil)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("GET /missing status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "<html") {
+		t.Fatalf("unknown route should not serve SPA HTML: %s", rec.Body.String())
 	}
 }
 

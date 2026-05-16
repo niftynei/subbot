@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/mail"
@@ -23,8 +24,17 @@ import (
 const maxJSONBody = 4 << 20
 const adminEmail = "niftynei@gmail.com"
 const gmailProfileURL = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+const siteBaseURL = "https://subbot.me"
+const seoMetaStart = "<!-- SEO_META_START -->"
+const seoMetaEnd = "<!-- SEO_META_END -->"
 
 var accountHashPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
+
+type routeMetadata struct {
+	Title       string
+	Description string
+	Path        string
+}
 
 type Server struct {
 	store     *store.Store
@@ -303,9 +313,12 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cleanPath := path.Clean("/" + r.URL.Path)
-	if cleanPath == "/" {
-		cleanPath = "/index.html"
+
+	if meta, ok := appRouteMetadata(cleanPath); ok {
+		s.serveIndex(w, r, staticDir, meta)
+		return
 	}
+
 	target := filepath.Join(staticDir, filepath.FromSlash(strings.TrimPrefix(cleanPath, "/")))
 
 	if info, err := os.Stat(target); err == nil && !info.IsDir() {
@@ -313,12 +326,139 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writeError(w, http.StatusNotFound, "not found")
+}
+
+func (s *Server) serveIndex(w http.ResponseWriter, r *http.Request, staticDir string, meta routeMetadata) {
 	indexPath := filepath.Join(staticDir, "index.html")
-	if _, err := os.Stat(indexPath); err != nil {
+	info, err := os.Stat(indexPath)
+	if err != nil {
 		writeError(w, http.StatusNotFound, "frontend is not built; deploy with the root Dockerfile or run npm run build in web/")
 		return
 	}
-	http.ServeFile(w, r, indexPath)
+
+	body, err := os.ReadFile(indexPath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "frontend is unavailable")
+		return
+	}
+
+	page := injectSEOBlock(string(body), meta)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	http.ServeContent(w, r, "index.html", info.ModTime(), strings.NewReader(page))
+}
+
+func appRouteMetadata(cleanPath string) (routeMetadata, bool) {
+	routes := map[string]routeMetadata{
+		"/": {
+			Title:       "sub-scription bot | Gmail subscription audit tool",
+			Description: "Audit Gmail subscriptions, see how often senders email you, review last received dates, and find unsubscribe options from one dashboard.",
+			Path:        "/",
+		},
+		"/terms": {
+			Title:       "Terms of Service | sub-scription bot",
+			Description: "Review the terms for using sub-scription bot to audit Gmail subscriptions and unsubscribe options.",
+			Path:        "/terms",
+		},
+		"/policy": {
+			Title:       "Privacy Policy | sub-scription bot",
+			Description: "Learn what sub-scription bot collects from Gmail, what is stored locally or on the server, and how account data is used.",
+			Path:        "/policy",
+		},
+	}
+	meta, ok := routes[cleanPath]
+	return meta, ok
+}
+
+func injectSEOBlock(page string, meta routeMetadata) string {
+	start := strings.Index(page, seoMetaStart)
+	end := strings.Index(page, seoMetaEnd)
+	if start == -1 || end == -1 || end < start {
+		return page
+	}
+	end += len(seoMetaEnd)
+	return page[:start] + buildSEOBlock(meta) + page[end:]
+}
+
+func buildSEOBlock(meta routeMetadata) string {
+	canonical := siteBaseURL + meta.Path
+	image := siteBaseURL + "/android-chrome-512x512.png"
+	title := html.EscapeString(meta.Title)
+	description := html.EscapeString(meta.Description)
+	canonicalEscaped := html.EscapeString(canonical)
+	imageEscaped := html.EscapeString(image)
+
+	var b strings.Builder
+	b.WriteString(seoMetaStart)
+	b.WriteByte('\n')
+	fmt.Fprintf(&b, `    <title>%s</title>`+"\n", title)
+	fmt.Fprintf(&b, `    <meta name="description" content="%s" />`+"\n", description)
+	b.WriteString(`    <meta name="robots" content="index, follow" />` + "\n")
+	fmt.Fprintf(&b, `    <link rel="canonical" href="%s" />`+"\n", canonicalEscaped)
+	b.WriteString(`    <meta property="og:type" content="website" />` + "\n")
+	b.WriteString(`    <meta property="og:site_name" content="sub-scription bot" />` + "\n")
+	fmt.Fprintf(&b, `    <meta property="og:title" content="%s" />`+"\n", title)
+	fmt.Fprintf(&b, `    <meta property="og:description" content="%s" />`+"\n", description)
+	fmt.Fprintf(&b, `    <meta property="og:url" content="%s" />`+"\n", canonicalEscaped)
+	fmt.Fprintf(&b, `    <meta property="og:image" content="%s" />`+"\n", imageEscaped)
+	b.WriteString(`    <meta name="twitter:card" content="summary" />` + "\n")
+	fmt.Fprintf(&b, `    <meta name="twitter:title" content="%s" />`+"\n", title)
+	fmt.Fprintf(&b, `    <meta name="twitter:description" content="%s" />`+"\n", description)
+	fmt.Fprintf(&b, `    <meta name="twitter:image" content="%s" />`+"\n", imageEscaped)
+	b.WriteString(`    <script type="application/ld+json">` + "\n")
+	b.WriteString(indentJSON(seoJSONLD(meta), "      "))
+	b.WriteByte('\n')
+	b.WriteString(`    </script>` + "\n")
+	b.WriteString("    ")
+	b.WriteString(seoMetaEnd)
+	return b.String()
+}
+
+func seoJSONLD(meta routeMetadata) string {
+	webSite := map[string]any{
+		"@type": "WebSite",
+		"@id":   siteBaseURL + "/#website",
+		"name":  "sub-scription bot",
+		"url":   siteBaseURL + "/",
+	}
+	page := map[string]any{
+		"@type":       "WebPage",
+		"@id":         siteBaseURL + meta.Path + "#webpage",
+		"url":         siteBaseURL + meta.Path,
+		"name":        meta.Title,
+		"description": meta.Description,
+		"isPartOf": map[string]any{
+			"@id": siteBaseURL + "/#website",
+		},
+	}
+	graph := []map[string]any{webSite, page}
+	if meta.Path == "/" {
+		graph = append(graph, map[string]any{
+			"@type":               "SoftwareApplication",
+			"name":                "sub-scription bot",
+			"applicationCategory": "EmailApplication",
+			"operatingSystem":     "Web",
+			"url":                 siteBaseURL + "/",
+			"description":         meta.Description,
+		})
+	}
+	body := map[string]any{
+		"@context": "https://schema.org",
+		"@graph":   graph,
+	}
+	encoded, err := json.MarshalIndent(body, "", "  ")
+	if err != nil {
+		return `{"@context":"https://schema.org","@type":"WebSite","name":"sub-scription bot","url":"https://subbot.me/"}`
+	}
+	return string(encoded)
+}
+
+func indentJSON(value, prefix string) string {
+	lines := strings.Split(value, "\n")
+	for i, line := range lines {
+		lines[i] = prefix + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func validateScan(req app.ScanRequest) error {

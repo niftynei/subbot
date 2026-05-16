@@ -5,6 +5,7 @@ const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 const MESSAGE_GET_INTERVAL_MS = 250;
 const GMAIL_FETCH_TIMEOUT_MS = 30_000;
+const PROGRESS_REPORT_INTERVAL = 5;
 
 type TokenResponse = {
   access_token?: string;
@@ -30,6 +31,8 @@ export type GmailScanProgress = {
   cached: number;
   matched: number;
   cappedAt: number;
+  batchInspected: number;
+  batchTotal: number;
   notice?: string;
 };
 
@@ -161,6 +164,8 @@ export async function scanGmailMetadata(input: {
   let listed = 0;
   let fetchedCount = 0;
   let cachedCount = 0;
+  let batchInspected = 0;
+  let batchTotal = 0;
 
   const report = (notice = "") => {
     input.onProgress({
@@ -169,8 +174,26 @@ export async function scanGmailMetadata(input: {
       cached: cachedCount,
       matched: messages.length,
       cappedAt: input.maxMessages,
+      batchInspected,
+      batchTotal,
       notice
     });
+  };
+
+  const inspectMessage = (message: GmailMessageMetadata, source: "cache" | "gmail", forceReport = false) => {
+    fetchedCount += 1;
+    batchInspected += 1;
+    if (source === "cache") {
+      cachedCount += 1;
+    }
+    const inWindow = messageTime(message) >= cutoff;
+    if (inWindow) {
+      messages.push(message);
+    }
+    if (forceReport || batchInspected === batchTotal || fetchedCount % PROGRESS_REPORT_INTERVAL === 0) {
+      report();
+    }
+    return inWindow;
   };
 
   report("Connecting to Gmail.");
@@ -200,6 +223,8 @@ export async function scanGmailMetadata(input: {
 
     const ids = listedPage.messages ?? [];
     listed += ids.length;
+    batchInspected = 0;
+    batchTotal = ids.length;
     report(`Found ${listed} Gmail messages to inspect so far.`);
     if (ids.length === 0) {
       break;
@@ -215,37 +240,45 @@ export async function scanGmailMetadata(input: {
       report("Local message cache is unavailable; fetching from Gmail.");
     }
 
-    cachedCount += cachedMessages.size;
     const missing = ids.filter((message) => !cachedMessages.has(message.id));
     if (cachedMessages.size > 0) {
       report(`Loaded ${cachedMessages.size} messages from local cache.`);
     }
 
-    const fetched = await mapWithConcurrency(missing, 4, async (message) => {
-      return getMessageMetadata(input.accessToken, message.id, messageGetPacer, (delayMs) => {
+    let pageMessages = 0;
+    let pageInWindow = 0;
+
+    for (const message of ids) {
+      const cached = cachedMessages.get(message.id);
+      if (!cached) {
+        continue;
+      }
+      pageMessages += 1;
+      if (inspectMessage(cached, "cache")) {
+        pageInWindow += 1;
+      }
+    }
+
+    const fetchedMessages = await mapWithConcurrency(missing, 4, async (message) => {
+      const fetched = await getMessageMetadata(input.accessToken, message.id, messageGetPacer, (delayMs) => {
         report(`Gmail quota pacing: retrying in ${formatDelay(delayMs)}.`);
       });
+      pageMessages += 1;
+      if (inspectMessage(fetched, "gmail")) {
+        pageInWindow += 1;
+      }
+      return fetched;
     });
 
     try {
-      await putCachedMessages(accountHash, fetched);
+      await putCachedMessages(accountHash, fetchedMessages);
     } catch {
       report("Could not update local message cache; scan will continue.");
     }
 
-    const pageMessages = [
-      ...ids.flatMap((message) => {
-        const cached = cachedMessages.get(message.id);
-        return cached ? [cached] : [];
-      }),
-      ...fetched
-    ];
-    fetchedCount += pageMessages.length;
-    const inWindow = pageMessages.filter((message) => messageTime(message) >= cutoff);
-    messages.push(...inWindow);
     report();
 
-    if (pageMessages.length > 0 && inWindow.length === 0) {
+    if (pageMessages > 0 && pageInWindow === 0) {
       break;
     }
 

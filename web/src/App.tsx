@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { bulkUnsubscribe, downloadCollectedEmailsCSV, saveScan } from "./api";
 import {
   hashEmail,
@@ -21,6 +21,28 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 const ADMIN_EMAIL = "niftynei@gmail.com";
 const GITHUB_REPO_URL = "https://github.com/niftynei/subbot";
 const PRODUCT_NAME = "sub-scription bot";
+const SITE_URL = "https://subbot.me";
+const BRAND_MARK_SRC = "/brand-mark-136.png";
+
+const PAGE_METADATA = {
+  home: {
+    title: "sub-scription bot | Gmail subscription audit tool",
+    description:
+      "Audit Gmail subscriptions, see how often senders email you, review last received dates, and find unsubscribe options from one dashboard.",
+    path: "/"
+  },
+  terms: {
+    title: "Terms of Service | sub-scription bot",
+    description: "Review the terms for using sub-scription bot to audit Gmail subscriptions and unsubscribe options.",
+    path: "/terms"
+  },
+  policy: {
+    title: "Privacy Policy | sub-scription bot",
+    description:
+      "Learn what sub-scription bot collects from Gmail, what is stored locally or on the server, and how account data is used.",
+    path: "/policy"
+  }
+} as const;
 
 function App() {
   if (window.location.pathname === "/terms") {
@@ -33,6 +55,8 @@ function App() {
 }
 
 function AuditPage() {
+  useDocumentMetadata(PAGE_METADATA.home);
+
   const [months, setMonths] = useState(SCAN_MONTHS);
   const [maxMessages, setMaxMessages] = useState(MAX_MESSAGES);
   const [status, setStatus] = useState<ScanStatus>("idle");
@@ -41,7 +65,9 @@ function AuditPage() {
     fetched: 0,
     cached: 0,
     matched: 0,
-    cappedAt: maxMessages
+    cappedAt: maxMessages,
+    batchInspected: 0,
+    batchTotal: 0
   });
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [accountHash, setAccountHash] = useState("");
@@ -64,7 +90,15 @@ function AuditPage() {
     setScan(null);
     setSelected(new Set());
     setAttempts({});
-    setProgress({ listed: 0, fetched: 0, cached: 0, matched: 0, cappedAt: maxMessages });
+    setProgress({
+      listed: 0,
+      fetched: 0,
+      cached: 0,
+      matched: 0,
+      cappedAt: maxMessages,
+      batchInspected: 0,
+      batchTotal: 0
+    });
 
     try {
       if (!GOOGLE_CLIENT_ID) {
@@ -220,7 +254,7 @@ function AuditPage() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/sub-scription-bot-logo.png" alt="" aria-hidden="true" />
+          <img className="brand-mark" src={BRAND_MARK_SRC} alt="" aria-hidden="true" />
           <div>
             <h1>{PRODUCT_NAME}</h1>
             <p>Email subscription audit for Gmail</p>
@@ -270,9 +304,11 @@ function AuditPage() {
           <span>{statusLabel(status)}</span>
           <progress value={progress.fetched} max={progress.cappedAt} />
           <span>
-            {progress.fetched} inspected
-            {progress.cached > 0 ? `, ${progress.cached} from cache` : ""}, {progress.matched} in {months}mo
-            window
+            {progress.batchTotal > 0
+              ? `${progress.batchInspected} / ${progress.batchTotal} inspected in current batch`
+              : `${progress.fetched} inspected`}
+            {progress.fetched > 0 ? `, ${progress.fetched} total` : ""}
+            {progress.cached > 0 ? `, ${progress.cached} from cache` : ""}, {progress.matched} in {months}mo window
           </span>
           {progress.notice && <div className="progress-note">{progress.notice}</div>}
         </section>
@@ -394,11 +430,13 @@ function AuditPage() {
 }
 
 function TermsPage() {
+  useDocumentMetadata(PAGE_METADATA.terms);
+
   return (
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/sub-scription-bot-logo.png" alt="" aria-hidden="true" />
+          <img className="brand-mark" src={BRAND_MARK_SRC} alt="" aria-hidden="true" />
           <div>
             <h1>Terms of Service</h1>
             <p>Last updated May 16, 2026</p>
@@ -462,11 +500,13 @@ function TermsPage() {
 }
 
 function PrivacyPolicyPage() {
+  useDocumentMetadata(PAGE_METADATA.policy);
+
   return (
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/sub-scription-bot-logo.png" alt="" aria-hidden="true" />
+          <img className="brand-mark" src={BRAND_MARK_SRC} alt="" aria-hidden="true" />
           <div>
             <h1>Privacy Policy</h1>
             <p>Last updated May 16, 2026</p>
@@ -574,6 +614,34 @@ function Metric(props: { label: string; value: string }) {
       <strong>{props.value}</strong>
     </div>
   );
+}
+
+function useDocumentMetadata(meta: (typeof PAGE_METADATA)[keyof typeof PAGE_METADATA]) {
+  useEffect(() => {
+    document.title = meta.title;
+    setMeta("name", "description", meta.description);
+    setCanonical(`${SITE_URL}${meta.path}`);
+  }, [meta]);
+}
+
+function setMeta(attribute: "name" | "property", key: string, content: string) {
+  let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${key}"]`);
+  if (!element) {
+    element = document.createElement("meta");
+    element.setAttribute(attribute, key);
+    document.head.append(element);
+  }
+  element.content = content;
+}
+
+function setCanonical(href: string) {
+  let element = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (!element) {
+    element = document.createElement("link");
+    element.rel = "canonical";
+    document.head.append(element);
+  }
+  element.href = href;
 }
 
 function AttemptBadge(props: { attempt: BulkUnsubscribeResult }) {
