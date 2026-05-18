@@ -3,9 +3,36 @@ import { getCachedMessages, putCachedMessages } from "./messageCache";
 
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
-const MESSAGE_GET_INTERVAL_MS = 250;
 const GMAIL_FETCH_TIMEOUT_MS = 30_000;
 const PROGRESS_REPORT_INTERVAL = 5;
+const METADATA_MESSAGE_HEADERS = [
+  "From",
+  "Sender",
+  "Date",
+  "Subject",
+  "List-ID",
+  "Mailing-List",
+  "List-Unsubscribe",
+  "List-Unsubscribe-Post"
+];
+const SCAN_PROFILES = {
+  fast: {
+    format: "metadata",
+    concurrency: 12,
+    initialIntervalMs: 50,
+    minIntervalMs: 20,
+    maxIntervalMs: 2_000
+  },
+  complete: {
+    format: "full",
+    concurrency: 8,
+    initialIntervalMs: 75,
+    minIntervalMs: 40,
+    maxIntervalMs: 3_000
+  }
+} as const;
+
+export type GmailScanMode = keyof typeof SCAN_PROFILES;
 
 type TokenResponse = {
   access_token?: string;
@@ -154,12 +181,19 @@ export async function scanGmailMetadata(input: {
   accessToken: string;
   maxMessages: number;
   months: number;
+  mode?: GmailScanMode;
   onProgress: (progress: GmailScanProgress) => void;
   onProfile?: (profile: GmailProfile) => void;
 }): Promise<{ profile: GmailProfile; messages: GmailMessageMetadata[] }> {
   const messages: GmailMessageMetadata[] = [];
   const cutoff = Date.now() - input.months * 30.44 * 86_400_000;
-  const messageGetPacer = new RequestPacer(MESSAGE_GET_INTERVAL_MS);
+  const scanMode = input.mode ?? "fast";
+  const scanProfile = SCAN_PROFILES[scanMode];
+  const messageGetPacer = new AdaptiveRequestPacer({
+    initialIntervalMs: scanProfile.initialIntervalMs,
+    minIntervalMs: scanProfile.minIntervalMs,
+    maxIntervalMs: scanProfile.maxIntervalMs
+  });
   let pageToken = "";
   let listed = 0;
   let fetchedCount = 0;
@@ -259,8 +293,8 @@ export async function scanGmailMetadata(input: {
       }
     }
 
-    const fetchedMessages = await mapWithConcurrency(missing, 4, async (message) => {
-      const fetched = await getMessageMetadata(input.accessToken, message.id, messageGetPacer, (delayMs) => {
+    const fetchedMessages = await mapWithConcurrency(missing, scanProfile.concurrency, async (message) => {
+      const fetched = await getMessageMetadata(input.accessToken, message.id, scanMode, messageGetPacer, (delayMs) => {
         report(`Gmail quota pacing: retrying in ${formatDelay(delayMs)}.`);
       });
       pageMessages += 1;
@@ -302,12 +336,20 @@ export async function hashEmail(email: string): Promise<string> {
 async function getMessageMetadata(
   accessToken: string,
   messageID: string,
-  pacer: RequestPacer,
+  mode: GmailScanMode,
+  pacer: AdaptiveRequestPacer,
   onRetry: (delayMs: number) => void
 ): Promise<GmailMessageMetadata> {
-  const params = new URLSearchParams({ format: "full" });
+  const params = new URLSearchParams({ format: SCAN_PROFILES[mode].format });
+  if (mode === "fast") {
+    for (const header of METADATA_MESSAGE_HEADERS) {
+      params.append("metadataHeaders", header);
+    }
+  }
   return gmailFetch<GmailMessageMetadata>(accessToken, `/users/me/messages/${messageID}?${params.toString()}`, {
     beforeRequest: () => pacer.wait(),
+    onSuccess: () => pacer.recordSuccess(),
+    onThrottle: () => pacer.recordThrottle(),
     onRetry
   });
 }
@@ -329,6 +371,8 @@ async function gmailFetch<T>(
   path: string,
   options: {
     beforeRequest?: () => Promise<void>;
+    onSuccess?: () => void;
+    onThrottle?: () => void;
     onRetry?: (delayMs: number) => void;
     maxRetries?: number;
     timeoutMs?: number;
@@ -364,11 +408,13 @@ async function gmailFetch<T>(
     }
     const payload = await response.json().catch(() => null);
     if (response.ok) {
+      options.onSuccess?.();
       return payload as T;
     }
 
     const apiError = parseAPIError(response, payload);
     if (attempt < maxRetries && isRetriableGmailError(apiError)) {
+      options.onThrottle?.();
       const retryAfter = retryAfterMs(response.headers.get("Retry-After"));
       const delayMs = retryAfter ?? backoffDelayMs(attempt);
       options.onRetry?.(delayMs);
@@ -382,11 +428,20 @@ async function gmailFetch<T>(
   throw new Error("Gmail request failed after retries");
 }
 
-class RequestPacer {
+class AdaptiveRequestPacer {
   private nextAt = 0;
   private queue = Promise.resolve();
+  private intervalMs: number;
 
-  constructor(private readonly intervalMs: number) {}
+  constructor(
+    private readonly config: {
+      initialIntervalMs: number;
+      minIntervalMs: number;
+      maxIntervalMs: number;
+    }
+  ) {
+    this.intervalMs = config.initialIntervalMs;
+  }
 
   wait(): Promise<void> {
     const scheduled = this.queue.then(async () => {
@@ -400,6 +455,14 @@ class RequestPacer {
 
     this.queue = scheduled.catch(() => undefined);
     return scheduled;
+  }
+
+  recordSuccess() {
+    this.intervalMs = Math.max(this.config.minIntervalMs, Math.floor(this.intervalMs * 0.9));
+  }
+
+  recordThrottle() {
+    this.intervalMs = Math.min(this.config.maxIntervalMs, Math.max(this.intervalMs + 100, this.intervalMs * 2));
   }
 }
 

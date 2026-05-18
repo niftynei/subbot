@@ -139,7 +139,7 @@ h2 {
 
 .controls {
   display: grid;
-  grid-template-columns: 160px 150px auto;
+  grid-template-columns: 160px 170px 150px auto;
   gap: 12px;
   align-items: end;
 }

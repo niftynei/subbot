@@ -7,6 +7,7 @@ import {
   requestGmailAccessToken,
   scanGmailMetadata,
   tokenIsUsable,
+  type GmailScanMode,
   type GmailAccessToken,
   type GmailScanProgress
 } from "./gmail";
@@ -59,6 +60,7 @@ function AuditPage() {
 
   const [months, setMonths] = useState(SCAN_MONTHS);
   const [maxMessages, setMaxMessages] = useState(MAX_MESSAGES);
+  const [scanMode, setScanMode] = useState<GmailScanMode>("fast");
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [progress, setProgress] = useState<GmailScanProgress>({
     listed: 0,
@@ -118,6 +120,7 @@ function AuditPage() {
           accessToken,
           maxMessages,
           months,
+          mode: scanMode,
           onProgress: setProgress,
           onProfile: (profile) => setAccountEmail(profile.emailAddress)
         });
@@ -134,6 +137,7 @@ function AuditPage() {
           accessToken,
           maxMessages,
           months,
+          mode: scanMode,
           onProgress: setProgress,
           onProfile: (profile) => setAccountEmail(profile.emailAddress)
         });
@@ -309,6 +313,13 @@ function AuditPage() {
             <option value={6}>6 months</option>
             <option value={12}>12 months</option>
             <option value={24}>24 months</option>
+          </select>
+        </label>
+        <label>
+          Scan mode
+          <select value={scanMode} onChange={(event) => setScanMode(event.target.value as GmailScanMode)}>
+            <option value="fast">Fast headers</option>
+            <option value="complete">Complete bodies</option>
           </select>
         </label>
         <label>
