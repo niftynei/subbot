@@ -20,6 +20,16 @@ type Subscription struct {
 	FrequencyLabel     string              `json:"frequency_label"`
 	FrequencyPerWeek   float64             `json:"frequency_per_week"`
 	UnsubscribeMethods []UnsubscribeMethod `json:"unsubscribe_methods"`
+	UnsubscribeAttempt *UnsubscribeAttempt `json:"unsubscribe_attempt,omitempty"`
+}
+
+type UnsubscribeAttempt struct {
+	MethodType  string `json:"method_type"`
+	Target      string `json:"target"`
+	Status      string `json:"status"`
+	HTTPStatus  int    `json:"http_status,omitempty"`
+	Error       string `json:"error,omitempty"`
+	AttemptedAt string `json:"attempted_at"`
 }
 
 type ScanRequest struct {

@@ -201,7 +201,7 @@ progress {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
 }
 
@@ -304,11 +304,30 @@ th {
   color: #ff99a3;
 }
 
+.status-still_sending {
+  border-color: #e4a72f;
+  background: #2a1c05;
+  color: #ffd37a;
+}
+
 .status-manual_required,
 .muted-badge {
   border-color: #263444;
   background: #080d13;
   color: #8f9dad;
+}
+
+.status-stack {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+.status-detail {
+  max-width: 220px;
+  color: #8f9dad;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .modal-backdrop {

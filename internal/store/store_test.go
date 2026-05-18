@@ -77,3 +77,70 @@ func TestSaveAndLoadLatestScan(t *testing.T) {
 		t.Fatalf("account export email = %q, want user@example.com", accounts[0].Email)
 	}
 }
+
+func TestScansIncludeLatestUnsubscribeAttempt(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "subbot.sqlite"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+
+	ctx := context.Background()
+	accountHash := "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	subscription := app.Subscription{
+		Key:              "sender:news@example.com",
+		DisplayName:      "Example News",
+		SenderEmail:      "news@example.com",
+		SenderDomain:     "example.com",
+		MessageCount:     2,
+		FirstReceivedAt:  "2026-05-10T00:00:00Z",
+		LastReceivedAt:   "2026-05-16T00:00:00Z",
+		FrequencyLabel:   "2x/week",
+		FrequencyPerWeek: 2,
+		UnsubscribeMethods: []app.UnsubscribeMethod{
+			{Type: "https_one_click", URL: "https://example.com/unsub", OneClick: true},
+		},
+	}
+
+	if err := st.RecordUnsubscribeAttempt(ctx, app.UnsubscribeAttemptInput{
+		AccountHash:     accountHash,
+		SubscriptionKey: subscription.Key,
+		MethodType:      "https_one_click",
+		Target:          "https://example.com/unsub",
+		Status:          "success",
+		HTTPStatus:      200,
+		AttemptedAt:     "2026-05-15T12:00:00Z",
+	}); err != nil {
+		t.Fatalf("record unsubscribe attempt: %v", err)
+	}
+
+	saved, err := st.SaveScan(ctx, app.ScanRequest{
+		AccountHash:   accountHash,
+		AccountEmail:  "user@example.com",
+		Provider:      "gmail",
+		WindowDays:    30,
+		MessageCount:  2,
+		ScannedAt:     "2026-05-16T18:00:00Z",
+		Subscriptions: []app.Subscription{subscription},
+	})
+	if err != nil {
+		t.Fatalf("save scan: %v", err)
+	}
+	if saved.Subscriptions[0].UnsubscribeAttempt == nil {
+		t.Fatal("saved scan missing unsubscribe attempt")
+	}
+	if got := saved.Subscriptions[0].UnsubscribeAttempt.AttemptedAt; got != "2026-05-15T12:00:00Z" {
+		t.Fatalf("saved unsubscribe attempted_at = %q, want 2026-05-15T12:00:00Z", got)
+	}
+
+	latest, err := st.LatestScan(ctx, accountHash)
+	if err != nil {
+		t.Fatalf("latest scan: %v", err)
+	}
+	if latest.Subscriptions[0].UnsubscribeAttempt == nil {
+		t.Fatal("latest scan missing unsubscribe attempt")
+	}
+	if got := latest.Subscriptions[0].UnsubscribeAttempt.Status; got != "success" {
+		t.Fatalf("unsubscribe status = %q, want success", got)
+	}
+}

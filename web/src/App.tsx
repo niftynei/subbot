@@ -11,7 +11,7 @@ import {
   type GmailScanProgress
 } from "./gmail";
 import { buildSubscriptions, linkMethod, mailtoMethod, oneClickMethod } from "./subscriptions";
-import type { BulkUnsubscribeResult, ScanResult, Subscription } from "./types";
+import type { BulkUnsubscribeResult, ScanResult, Subscription, UnsubscribeAttempt } from "./types";
 
 type ScanStatus = "idle" | "authorizing" | "scanning" | "saving" | "done" | "error";
 
@@ -80,8 +80,12 @@ function AuditPage() {
 
   const subscriptions = scan?.subscriptions ?? [];
   const selectedSubscriptions = useMemo(
-    () => subscriptions.filter((subscription) => selected.has(subscription.key) && oneClickMethod(subscription)),
-    [selected, subscriptions]
+    () =>
+      subscriptions.filter(
+        (subscription) =>
+          selected.has(subscription.key) && canSendOneClickRequest(subscription, attempts[subscription.key])
+      ),
+    [attempts, selected, subscriptions]
   );
 
   async function runScan() {
@@ -178,7 +182,7 @@ function AuditPage() {
   }
 
   function toggleSelection(subscription: Subscription) {
-    if (!oneClickMethod(subscription)) {
+    if (!canSendOneClickRequest(subscription, attempts[subscription.key])) {
       return;
     }
     setSelected((current) => {
@@ -193,7 +197,9 @@ function AuditPage() {
   }
 
   function toggleAllOneClick() {
-    const selectable = subscriptions.filter(oneClickMethod);
+    const selectable = subscriptions.filter((subscription) =>
+      canSendOneClickRequest(subscription, attempts[subscription.key])
+    );
     setSelected((current) => {
       if (selectable.every((subscription) => current.has(subscription.key))) {
         return new Set();
@@ -249,6 +255,9 @@ function AuditPage() {
   const busy = status === "authorizing" || status === "scanning" || status === "saving";
   const hasReusableToken = tokenIsUsable(gmailToken, GOOGLE_CLIENT_ID);
   const isExportAdmin = accountEmail.toLowerCase() === ADMIN_EMAIL;
+  const unsubscribeRequestedCount = subscriptions.filter((subscription) =>
+    isSuccessfulUnsubscribe(latestAttempt(subscription, attempts[subscription.key]))
+  ).length;
 
   return (
     <main className="app-shell">
@@ -320,6 +329,7 @@ function AuditPage() {
         <Metric label="Subscriptions" value={String(subscriptions.length)} />
         <Metric label="Messages in window" value={String(scan?.message_count ?? 0)} />
         <Metric label="One-click available" value={String(subscriptions.filter(oneClickMethod).length)} />
+        <Metric label="Requested" value={String(unsubscribeRequestedCount)} />
         <Metric label="Last scan" value={scan ? formatDateTime(scan.scanned_at) : "Not run"} />
       </section>
 
@@ -334,7 +344,14 @@ function AuditPage() {
             </p>
           </div>
           <div className="table-actions">
-            <button disabled={!subscriptions.some(oneClickMethod)} onClick={toggleAllOneClick}>
+            <button
+              disabled={
+                !subscriptions.some((subscription) =>
+                  canSendOneClickRequest(subscription, attempts[subscription.key])
+                )
+              }
+              onClick={toggleAllOneClick}
+            >
               Select one-click
             </button>
             <button
@@ -365,7 +382,8 @@ function AuditPage() {
                 const oneClick = oneClickMethod(subscription);
                 const link = linkMethod(subscription);
                 const mailto = mailtoMethod(subscription);
-                const attempt = attempts[subscription.key];
+                const attempt = latestAttempt(subscription, attempts[subscription.key]);
+                const canRequest = canSendOneClickRequest(subscription, attempts[subscription.key]);
                 return (
                   <tr key={subscription.key}>
                     <td>
@@ -373,7 +391,7 @@ function AuditPage() {
                         type="checkbox"
                         aria-label={`Select ${subscription.display_name}`}
                         checked={selected.has(subscription.key)}
-                        disabled={!oneClick}
+                        disabled={!canRequest}
                         onChange={() => toggleSelection(subscription)}
                       />
                     </td>
@@ -399,7 +417,13 @@ function AuditPage() {
                         <span className="badge muted-badge">None</span>
                       )}
                     </td>
-                    <td>{attempt ? <AttemptBadge attempt={attempt} /> : <span className="muted">-</span>}</td>
+                    <td>
+                      {attempt ? (
+                        <AttemptBadge attempt={attempt} lastReceivedAt={subscription.last_received_at} />
+                      ) : (
+                        <span className="muted">-</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -644,14 +668,64 @@ function setCanonical(href: string) {
   element.href = href;
 }
 
-function AttemptBadge(props: { attempt: BulkUnsubscribeResult }) {
+function AttemptBadge(props: { attempt: UnsubscribeAttempt; lastReceivedAt: string }) {
+  const sentAfterRequest = emailArrivedAfterAttempt(props.lastReceivedAt, props.attempt.attempted_at);
+  if (props.attempt.status === "success" && sentAfterRequest) {
+    return (
+      <div className="status-stack">
+        <span className="badge status-still_sending">Still sending</span>
+        <span className="status-detail">
+          requested {formatDate(props.attempt.attempted_at)}, last mail {formatDate(props.lastReceivedAt)}
+        </span>
+      </div>
+    );
+  }
+
   const label =
     props.attempt.status === "success"
-      ? "Success"
+      ? `Requested ${formatDate(props.attempt.attempted_at)}`
       : props.attempt.status === "manual_required"
         ? "Manual"
-        : "Failed";
-  return <span className={`badge status-${props.attempt.status}`}>{label}</span>;
+        : `Failed ${formatDate(props.attempt.attempted_at)}`;
+  return (
+    <div className="status-stack">
+      <span className={`badge status-${props.attempt.status}`}>{label}</span>
+      {props.attempt.status !== "success" && props.attempt.error && (
+        <span className="status-detail">{props.attempt.error}</span>
+      )}
+    </div>
+  );
+}
+
+function latestAttempt(
+  subscription: Subscription,
+  currentAttempt: BulkUnsubscribeResult | undefined
+): UnsubscribeAttempt | undefined {
+  return currentAttempt ?? subscription.unsubscribe_attempt;
+}
+
+function canSendOneClickRequest(
+  subscription: Subscription,
+  currentAttempt: BulkUnsubscribeResult | undefined
+): boolean {
+  if (!oneClickMethod(subscription)) {
+    return false;
+  }
+  const attempt = latestAttempt(subscription, currentAttempt);
+  if (attempt?.status !== "success") {
+    return true;
+  }
+  return emailArrivedAfterAttempt(subscription.last_received_at, attempt.attempted_at);
+}
+
+function isSuccessfulUnsubscribe(attempt: UnsubscribeAttempt | undefined): boolean {
+  return attempt?.status === "success";
+}
+
+function emailArrivedAfterAttempt(lastReceivedAt: string, attemptedAt: string): boolean {
+  const lastReceived = Date.parse(lastReceivedAt);
+  const attempted = Date.parse(attemptedAt);
+  return Number.isFinite(lastReceived) && Number.isFinite(attempted) && lastReceived > attempted;
 }
 
 function statusLabel(status: ScanStatus): string {

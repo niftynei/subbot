@@ -18,6 +18,16 @@ export type Subscription = {
   frequency_label: string;
   frequency_per_week: number;
   unsubscribe_methods: UnsubscribeMethod[];
+  unsubscribe_attempt?: UnsubscribeAttempt;
+};
+
+export type UnsubscribeAttempt = {
+  method_type: string;
+  target: string;
+  status: "pending" | "success" | "failed" | "manual_required";
+  http_status?: number;
+  error?: string;
+  attempted_at: string;
 };
 
 export type ScanResult = {
@@ -31,14 +41,8 @@ export type ScanResult = {
   subscriptions: Subscription[];
 };
 
-export type BulkUnsubscribeResult = {
+export type BulkUnsubscribeResult = UnsubscribeAttempt & {
   subscription_key: string;
-  method_type: string;
-  target: string;
-  status: "pending" | "success" | "failed" | "manual_required";
-  http_status?: number;
-  error?: string;
-  attempted_at: string;
 };
 
 export type GmailHeader = {

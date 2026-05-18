@@ -219,6 +219,11 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 		return app.ScanResult{}, fmt.Errorf("commit scan: %w", err)
 	}
 
+	subscriptions, err := s.withLatestUnsubscribeAttempts(ctx, req.AccountHash, req.Subscriptions)
+	if err != nil {
+		return app.ScanResult{}, err
+	}
+
 	return app.ScanResult{
 		ID:            scanID,
 		AccountHash:   req.AccountHash,
@@ -227,7 +232,7 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 		WindowDays:    req.WindowDays,
 		MessageCount:  req.MessageCount,
 		ScannedAt:     scannedAt,
-		Subscriptions: req.Subscriptions,
+		Subscriptions: subscriptions,
 	}, nil
 }
 
@@ -297,7 +302,63 @@ func (s *Store) LatestScan(ctx context.Context, accountHash string) (*app.ScanRe
 		return nil, fmt.Errorf("iterate subscriptions: %w", err)
 	}
 
+	scan.Subscriptions, err = s.withLatestUnsubscribeAttempts(ctx, scan.AccountHash, scan.Subscriptions)
+	if err != nil {
+		return nil, err
+	}
+
 	return &scan, nil
+}
+
+func (s *Store) withLatestUnsubscribeAttempts(ctx context.Context, accountHash string, subscriptions []app.Subscription) ([]app.Subscription, error) {
+	if len(subscriptions) == 0 {
+		return subscriptions, nil
+	}
+
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
+		SELECT subscription_key, method_type, target, status, http_status, error_message, attempted_at
+		FROM unsubscribe_attempts
+		WHERE account_hash = ?
+		ORDER BY subscription_key ASC, attempted_at DESC, id DESC
+	`), accountHash)
+	if err != nil {
+		return nil, fmt.Errorf("load unsubscribe attempts: %w", err)
+	}
+	defer rows.Close()
+
+	attempts := make(map[string]app.UnsubscribeAttempt)
+	for rows.Next() {
+		var key string
+		var attempt app.UnsubscribeAttempt
+		if err := rows.Scan(
+			&key,
+			&attempt.MethodType,
+			&attempt.Target,
+			&attempt.Status,
+			&attempt.HTTPStatus,
+			&attempt.Error,
+			&attempt.AttemptedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan unsubscribe attempt: %w", err)
+		}
+		if _, exists := attempts[key]; !exists {
+			attempts[key] = attempt
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate unsubscribe attempts: %w", err)
+	}
+
+	enriched := make([]app.Subscription, len(subscriptions))
+	copy(enriched, subscriptions)
+	for i := range enriched {
+		attempt, ok := attempts[enriched[i].Key]
+		if !ok {
+			continue
+		}
+		enriched[i].UnsubscribeAttempt = &attempt
+	}
+	return enriched, nil
 }
 
 func (s *Store) RecordUnsubscribeAttempt(ctx context.Context, in app.UnsubscribeAttemptInput) error {
