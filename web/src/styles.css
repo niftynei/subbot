@@ -269,6 +269,69 @@ th {
   text-transform: uppercase;
 }
 
+.select-cell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.select-cell input {
+  width: auto;
+}
+
+.expander {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-color: #263444;
+  background: #080d13;
+}
+
+.expander span {
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid #9eabba;
+  border-right: 2px solid #9eabba;
+  transform: rotate(45deg);
+  transition: transform 120ms ease;
+}
+
+.expander.expanded span {
+  transform: rotate(135deg);
+}
+
+.message-row td {
+  background: #080d13;
+  border-bottom-color: #1c2734;
+}
+
+.message-list {
+  display: grid;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.message-summary {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.message-summary span {
+  color: #8f9dad;
+  font-size: 12px;
+}
+
+.message-summary strong {
+  color: #d9e8f8;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .sender-name {
   font-weight: 700;
 }

@@ -1,4 +1,10 @@
-import type { GmailMessageMetadata, GmailMessagePart, Subscription, UnsubscribeMethod } from "./types";
+import type {
+  GmailMessageMetadata,
+  GmailMessagePart,
+  Subscription,
+  SubscriptionMessage,
+  UnsubscribeMethod
+} from "./types";
 
 type Group = {
   key: string;
@@ -7,6 +13,7 @@ type Group = {
   senderDomain: string;
   listID: string;
   dates: Date[];
+  messages: SubscriptionMessage[];
   methods: UnsubscribeMethod[];
 };
 
@@ -24,6 +31,7 @@ export function buildSubscriptions(
       continue;
     }
     const date = parseMessageDate(message);
+    const subject = cleanSubject(headerValue(headers, "Subject"));
     const listID = normalizeListID(headerValue(headers, "List-ID") || headerValue(headers, "Mailing-List"));
     const methods = mergeMethods(
       parseUnsubscribeMethods(
@@ -41,6 +49,7 @@ export function buildSubscriptions(
     const current = groups.get(key);
     if (current) {
       current.dates.push(date);
+      current.messages.push({ subject, received_at: date.toISOString() });
       current.methods = mergeMethods(current.methods, methods);
       continue;
     }
@@ -52,6 +61,7 @@ export function buildSubscriptions(
       senderDomain: from.domain,
       listID,
       dates: [date],
+      messages: [{ subject, received_at: date.toISOString() }],
       methods
     });
   }
@@ -99,7 +109,13 @@ function toSubscription(group: Group): Subscription {
     last_received_at: last.toISOString(),
     frequency_label: frequency.label,
     frequency_per_week: frequency.perWeek,
-    unsubscribe_methods: group.methods
+    unsubscribe_methods: group.methods,
+    messages: group.messages
+      .sort((a, b) => Date.parse(b.received_at) - Date.parse(a.received_at))
+      .map((message) => ({
+        subject: message.subject || "(no subject)",
+        received_at: message.received_at
+      }))
   };
 }
 
@@ -377,6 +393,10 @@ function cleanDisplayName(value: string): string {
     .replace(/^"+|"+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function cleanSubject(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function normalizeEmail(value: string): string {

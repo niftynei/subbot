@@ -39,6 +39,9 @@ func TestSaveAndLoadLatestScan(t *testing.T) {
 				UnsubscribeMethods: []app.UnsubscribeMethod{
 					{Type: "https_one_click", URL: "https://example.com/unsub", OneClick: true},
 				},
+				Messages: []app.SubscriptionMessage{
+					{Subject: "Weekly update", ReceivedAt: "2026-05-15T00:00:00Z"},
+				},
 			},
 		},
 	})
@@ -64,6 +67,9 @@ func TestSaveAndLoadLatestScan(t *testing.T) {
 	}
 	if got := latest.Subscriptions[0].UnsubscribeMethods[0].Type; got != "https_one_click" {
 		t.Fatalf("unsubscribe method = %q, want https_one_click", got)
+	}
+	if got := latest.Subscriptions[0].Messages[0].Subject; got != "Weekly update" {
+		t.Fatalf("message subject = %q, want Weekly update", got)
 	}
 
 	accounts, err := st.ListAccounts(context.Background())

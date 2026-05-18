@@ -118,6 +118,50 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, string(body)); err != nil {
 		return fmt.Errorf("apply schema %s: %w", schemaName, err)
 	}
+	if err := s.ensureMessageSummariesColumn(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) ensureMessageSummariesColumn(ctx context.Context) error {
+	if s.dialect == DialectPostgres {
+		_, err := s.db.ExecContext(ctx, `
+			ALTER TABLE subscriptions
+			ADD COLUMN IF NOT EXISTS message_summaries_json JSONB NOT NULL DEFAULT '[]'::jsonb
+		`)
+		if err != nil {
+			return fmt.Errorf("ensure postgres message summaries column: %w", err)
+		}
+		return nil
+	}
+
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(subscriptions)`)
+	if err != nil {
+		return fmt.Errorf("inspect sqlite subscriptions columns: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			return fmt.Errorf("scan sqlite subscriptions column: %w", err)
+		}
+		if name == "message_summaries_json" {
+			return nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate sqlite subscriptions columns: %w", err)
+	}
+
+	if _, err := s.db.ExecContext(ctx, `ALTER TABLE subscriptions ADD COLUMN message_summaries_json TEXT NOT NULL DEFAULT '[]'`); err != nil {
+		return fmt.Errorf("add sqlite message summaries column: %w", err)
+	}
 	return nil
 }
 
@@ -182,8 +226,8 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 		INSERT INTO subscriptions(
 			scan_id, account_hash, subscription_key, display_name, sender_email, sender_domain, list_id,
 			message_count, first_received_at, last_received_at, frequency_label, frequency_per_week,
-			unsubscribe_methods_json
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			unsubscribe_methods_json, message_summaries_json
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	stmt, err := tx.PrepareContext(ctx, insertSubscriptionSQL)
 	if err != nil {
@@ -195,6 +239,10 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 		methodsJSON, err := json.Marshal(sub.UnsubscribeMethods)
 		if err != nil {
 			return app.ScanResult{}, fmt.Errorf("marshal unsubscribe methods for %s: %w", sub.Key, err)
+		}
+		messagesJSON, err := json.Marshal(sub.Messages)
+		if err != nil {
+			return app.ScanResult{}, fmt.Errorf("marshal message summaries for %s: %w", sub.Key, err)
 		}
 		if _, err = stmt.ExecContext(ctx,
 			scanID,
@@ -210,6 +258,7 @@ func (s *Store) SaveScan(ctx context.Context, req app.ScanRequest) (app.ScanResu
 			sub.FrequencyLabel,
 			sub.FrequencyPerWeek,
 			string(methodsJSON),
+			string(messagesJSON),
 		); err != nil {
 			return app.ScanResult{}, fmt.Errorf("insert subscription %s: %w", sub.Key, err)
 		}
@@ -265,7 +314,7 @@ func (s *Store) LatestScan(ctx context.Context, accountHash string) (*app.ScanRe
 	rows, err := s.db.QueryContext(ctx, s.rebind(`
 		SELECT subscription_key, display_name, sender_email, sender_domain, list_id,
 			message_count, first_received_at, last_received_at, frequency_label,
-			frequency_per_week, unsubscribe_methods_json
+			frequency_per_week, unsubscribe_methods_json, message_summaries_json
 		FROM subscriptions
 		WHERE scan_id = ?
 		ORDER BY message_count DESC, last_received_at DESC
@@ -278,6 +327,7 @@ func (s *Store) LatestScan(ctx context.Context, accountHash string) (*app.ScanRe
 	for rows.Next() {
 		var sub app.Subscription
 		var methodsJSON string
+		var messagesJSON string
 		if err := rows.Scan(
 			&sub.Key,
 			&sub.DisplayName,
@@ -290,11 +340,15 @@ func (s *Store) LatestScan(ctx context.Context, accountHash string) (*app.ScanRe
 			&sub.FrequencyLabel,
 			&sub.FrequencyPerWeek,
 			&methodsJSON,
+			&messagesJSON,
 		); err != nil {
 			return nil, fmt.Errorf("scan subscription: %w", err)
 		}
 		if err := json.Unmarshal([]byte(methodsJSON), &sub.UnsubscribeMethods); err != nil {
 			return nil, fmt.Errorf("decode unsubscribe methods for %s: %w", sub.Key, err)
+		}
+		if err := json.Unmarshal([]byte(messagesJSON), &sub.Messages); err != nil {
+			return nil, fmt.Errorf("decode message summaries for %s: %w", sub.Key, err)
 		}
 		scan.Subscriptions = append(scan.Subscriptions, sub)
 	}

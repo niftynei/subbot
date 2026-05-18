@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   last_received_at TIMESTAMPTZ NOT NULL,
   frequency_label TEXT NOT NULL,
   frequency_per_week DOUBLE PRECISION NOT NULL,
-  unsubscribe_methods_json JSONB NOT NULL DEFAULT '[]'::jsonb
+  unsubscribe_methods_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  message_summaries_json JSONB NOT NULL DEFAULT '[]'::jsonb
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_scan_key

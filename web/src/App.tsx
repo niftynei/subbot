@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { bulkUnsubscribe, downloadCollectedEmailsCSV, saveScan } from "./api";
 import {
   hashEmail,
@@ -74,6 +74,7 @@ function AuditPage() {
   const [accountEmail, setAccountEmail] = useState("");
   const [gmailToken, setGmailToken] = useState<GmailAccessToken | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [attempts, setAttempts] = useState<Record<string, BulkUnsubscribeResult>>({});
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
@@ -93,6 +94,7 @@ function AuditPage() {
     setStatus("authorizing");
     setScan(null);
     setSelected(new Set());
+    setExpanded(new Set());
     setAttempts({});
     setProgress({
       listed: 0,
@@ -205,6 +207,21 @@ function AuditPage() {
         return new Set();
       }
       return new Set(selectable.map((subscription) => subscription.key));
+    });
+  }
+
+  function toggleExpanded(subscription: Subscription) {
+    if (!subscription.messages?.length) {
+      return;
+    }
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(subscription.key)) {
+        next.delete(subscription.key);
+      } else {
+        next.add(subscription.key);
+      }
+      return next;
     });
   }
 
@@ -384,47 +401,78 @@ function AuditPage() {
                 const mailto = mailtoMethod(subscription);
                 const attempt = latestAttempt(subscription, attempts[subscription.key]);
                 const canRequest = canSendOneClickRequest(subscription, attempts[subscription.key]);
+                const isExpanded = expanded.has(subscription.key);
+                const messages = subscription.messages ?? [];
                 return (
-                  <tr key={subscription.key}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${subscription.display_name}`}
-                        checked={selected.has(subscription.key)}
-                        disabled={!canRequest}
-                        onChange={() => toggleSelection(subscription)}
-                      />
-                    </td>
-                    <td>
-                      <div className="sender-name">{subscription.display_name}</div>
-                      <div className="muted">{subscription.sender_email || subscription.sender_domain}</div>
-                    </td>
-                    <td>{subscription.frequency_label}</td>
-                    <td>{formatDate(subscription.last_received_at)}</td>
-                    <td>{subscription.message_count}</td>
-                    <td>
-                      {oneClick ? (
-                        <span className="badge good">One-click</span>
-                      ) : link ? (
-                        <a className="badge action-link" href={link.url} target="_blank" rel="noreferrer">
-                          Open link
-                        </a>
-                      ) : mailto ? (
-                        <a className="badge" href={mailtoHref(mailto.email!, mailto.subject)}>
-                          Email
-                        </a>
-                      ) : (
-                        <span className="badge muted-badge">None</span>
-                      )}
-                    </td>
-                    <td>
-                      {attempt ? (
-                        <AttemptBadge attempt={attempt} lastReceivedAt={subscription.last_received_at} />
-                      ) : (
-                        <span className="muted">-</span>
-                      )}
-                    </td>
-                  </tr>
+                  <Fragment key={subscription.key}>
+                    <tr>
+                      <td>
+                        <div className="select-cell">
+                          <button
+                            className={`expander ${isExpanded ? "expanded" : ""}`}
+                            type="button"
+                            aria-label={`${isExpanded ? "Hide" : "Show"} message subjects for ${subscription.display_name}`}
+                            aria-expanded={isExpanded}
+                            disabled={messages.length === 0}
+                            onClick={() => toggleExpanded(subscription)}
+                          >
+                            <span aria-hidden="true" />
+                          </button>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${subscription.display_name}`}
+                            checked={selected.has(subscription.key)}
+                            disabled={!canRequest}
+                            onChange={() => toggleSelection(subscription)}
+                          />
+                        </div>
+                      </td>
+                      <td>
+                        <div className="sender-name">{subscription.display_name}</div>
+                        <div className="muted">{subscription.sender_email || subscription.sender_domain}</div>
+                      </td>
+                      <td>{subscription.frequency_label}</td>
+                      <td>{formatDate(subscription.last_received_at)}</td>
+                      <td>{subscription.message_count}</td>
+                      <td>
+                        {oneClick ? (
+                          <span className="badge good">One-click</span>
+                        ) : link ? (
+                          <a className="badge action-link" href={link.url} target="_blank" rel="noreferrer">
+                            Open link
+                          </a>
+                        ) : mailto ? (
+                          <a className="badge" href={mailtoHref(mailto.email!, mailto.subject)}>
+                            Email
+                          </a>
+                        ) : (
+                          <span className="badge muted-badge">None</span>
+                        )}
+                      </td>
+                      <td>
+                        {attempt ? (
+                          <AttemptBadge attempt={attempt} lastReceivedAt={subscription.last_received_at} />
+                        ) : (
+                          <span className="muted">-</span>
+                        )}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="message-row">
+                        <td />
+                        <td colSpan={6}>
+                          <div className="message-list">
+                            {messages.map((message, index) => (
+                              <div className="message-summary" key={`${message.received_at}:${index}`}>
+                                <span>{formatDate(message.received_at)}</span>
+                                <strong>{message.subject || "(no subject)"}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -487,7 +535,8 @@ function TermsPage() {
         <p>
           When you connect Gmail and run a scan, {PRODUCT_NAME} collects and stores your Gmail account email
           address, a hashed account identifier, scan timing and message-count metadata, aggregate
-          subscription records, unsubscribe methods found in messages, and unsubscribe attempt records.
+          subscription records, message subjects for listed subscription mail, unsubscribe methods found in
+          messages, and unsubscribe attempt records.
           {PRODUCT_NAME} does not store full email message bodies or attachments on the server.
         </p>
 
@@ -563,8 +612,8 @@ function PrivacyPolicyPage() {
         <h2>Information Stored On The Server</h2>
         <p>
           {PRODUCT_NAME} stores your Gmail account email address, a hashed account identifier, scan timing and
-          message-count metadata, aggregate subscription records, unsubscribe methods discovered in
-          messages, and unsubscribe attempt records.
+          message-count metadata, aggregate subscription records, message subjects for listed subscription mail,
+          unsubscribe methods discovered in messages, and unsubscribe attempt records.
         </p>
 
         <h2>Information Not Stored On The Server</h2>

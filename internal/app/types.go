@@ -9,18 +9,24 @@ type UnsubscribeMethod struct {
 }
 
 type Subscription struct {
-	Key                string              `json:"key"`
-	DisplayName        string              `json:"display_name"`
-	SenderEmail        string              `json:"sender_email,omitempty"`
-	SenderDomain       string              `json:"sender_domain,omitempty"`
-	ListID             string              `json:"list_id,omitempty"`
-	MessageCount       int                 `json:"message_count"`
-	FirstReceivedAt    string              `json:"first_received_at"`
-	LastReceivedAt     string              `json:"last_received_at"`
-	FrequencyLabel     string              `json:"frequency_label"`
-	FrequencyPerWeek   float64             `json:"frequency_per_week"`
-	UnsubscribeMethods []UnsubscribeMethod `json:"unsubscribe_methods"`
-	UnsubscribeAttempt *UnsubscribeAttempt `json:"unsubscribe_attempt,omitempty"`
+	Key                string                `json:"key"`
+	DisplayName        string                `json:"display_name"`
+	SenderEmail        string                `json:"sender_email,omitempty"`
+	SenderDomain       string                `json:"sender_domain,omitempty"`
+	ListID             string                `json:"list_id,omitempty"`
+	MessageCount       int                   `json:"message_count"`
+	FirstReceivedAt    string                `json:"first_received_at"`
+	LastReceivedAt     string                `json:"last_received_at"`
+	FrequencyLabel     string                `json:"frequency_label"`
+	FrequencyPerWeek   float64               `json:"frequency_per_week"`
+	UnsubscribeMethods []UnsubscribeMethod   `json:"unsubscribe_methods"`
+	Messages           []SubscriptionMessage `json:"messages,omitempty"`
+	UnsubscribeAttempt *UnsubscribeAttempt   `json:"unsubscribe_attempt,omitempty"`
+}
+
+type SubscriptionMessage struct {
+	Subject    string `json:"subject"`
+	ReceivedAt string `json:"received_at"`
 }
 
 type UnsubscribeAttempt struct {

@@ -18,7 +18,13 @@ export type Subscription = {
   frequency_label: string;
   frequency_per_week: number;
   unsubscribe_methods: UnsubscribeMethod[];
+  messages?: SubscriptionMessage[];
   unsubscribe_attempt?: UnsubscribeAttempt;
+};
+
+export type SubscriptionMessage = {
+  subject: string;
+  received_at: string;
 };
 
 export type UnsubscribeAttempt = {
